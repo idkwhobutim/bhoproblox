@@ -9,7 +9,7 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local baseSpeed = 16
 local speedCap = 100
 local decelRate = 50
-local lowFriction = 0.1 -- less slippery
+local lowFriction = 0.4 -- less slippery
 local currSpeed = baseSpeed
 
 -- weighted jumpBoosts (mostly 2.3-2.5)
@@ -25,7 +25,7 @@ local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origPro
 local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
-local airAccelStrength = 8 -- tweak this for faster direction change
+local airAccelStrength = 21 -- tweak this for faster direction change
 
 -- jump hook
 hum.Jumping:Connect(function()
