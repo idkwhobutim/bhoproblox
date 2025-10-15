@@ -1,4 +1,3 @@
--- make sure it runs immediately
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -10,8 +9,9 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local baseSpeed = 16
 local speedCap = 100
 local decelRate = 50
-local lowFriction = 0.01
+local lowFriction = 0.1 -- updated friction
 local currSpeed = baseSpeed
+local airAccel = 50 -- controls how fast you can redirect in air
 
 -- weighted jumpBoosts (mostly 2.3-2.5)
 local jumpBoostWeights = {
@@ -47,8 +47,19 @@ end)
 
 -- heartbeat update
 RunService.Heartbeat:Connect(function(delta)
-    if hum.MoveDirection.Magnitude > 0 then
-        lastDir = hum.MoveDirection.Unit
+    local moveDir = hum.MoveDirection
+    local hzVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+
+    -- air acceleration (direction only, no speed gain)
+    if moveDir.Magnitude > 0 and not hum.FloorMaterial then
+        local desiredDir = moveDir.Unit
+        local currentDir = hzVel.Magnitude > 0 and hzVel.Unit or desiredDir
+        local newDir = (currentDir + desiredDir * airAccel * delta).Unit
+        hrp.Velocity = Vector3.new(newDir.X * hzVel.Magnitude, hrp.Velocity.Y, newDir.Z * hzVel.Magnitude)
+    end
+
+    if moveDir.Magnitude > 0 then
+        lastDir = moveDir.Unit
         sliding = false
         hrp.CustomPhysicalProperties = origProps
     end
@@ -64,7 +75,7 @@ RunService.Heartbeat:Connect(function(delta)
 
     lastHzSpeed = hzSpeedNow
 
-    if hum.MoveDirection.Magnitude == 0 and currSpeed > baseSpeed then
+    if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
         if not sliding then
             sliding = true
             hrp.CustomPhysicalProperties = slipProps
@@ -83,7 +94,7 @@ RunService.Heartbeat:Connect(function(delta)
             hum.WalkSpeed = baseSpeed
             currSpeed = baseSpeed
         end
-    elseif hum.MoveDirection.Magnitude == 0 then
+    elseif moveDir.Magnitude == 0 then
         currSpeed = baseSpeed
         hum.WalkSpeed = baseSpeed
         sliding = false
