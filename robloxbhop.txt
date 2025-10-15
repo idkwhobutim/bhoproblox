@@ -1,8 +1,21 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local plr = Players.LocalPlayer
-local char = plr.Character or plr.CharacterAdded:Wait()
+-- wait for local player
+local plr
+repeat
+    plr = Players.LocalPlayer
+    RunService.RenderStepped:Wait()
+until plr
+
+-- wait for character
+local char = plr.Character
+repeat
+    char = plr.Character
+    RunService.RenderStepped:Wait()
+until char
+
+-- wait for humanoid & HRP
 local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
@@ -11,22 +24,13 @@ local speedCap = 100
 local decelRate = 50
 local lowFriction = 0.1 -- updated friction
 local currSpeed = baseSpeed
-local airAccel = 50 -- controls how fast you can redirect in air
+local airAccel = 50 -- direction only, no speed gain
 
 -- weighted jumpBoosts (mostly 2.3-2.5)
-local jumpBoostWeights = {
-    [2.3] = 30,
-    [2.4] = 30,
-    [2.5] = 30,
-    [2.6] = 5,
-    [2.7] = 5
-}
-
+local jumpBoostWeights = {[2.3]=30,[2.4]=30,[2.5]=30,[2.6]=5,[2.7]=5}
 local weightedJumpBoosts = {}
 for boost, weight in pairs(jumpBoostWeights) do
-    for i = 1, weight do
-        table.insert(weightedJumpBoosts, boost)
-    end
+    for i=1,weight do table.insert(weightedJumpBoosts,boost) end
 end
 
 local origProps = hrp.CustomPhysicalProperties or PhysicalProperties.new(0.7,0.3,0.5,1,1)
@@ -36,7 +40,6 @@ local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
 
--- jump hook
 hum.Jumping:Connect(function()
     local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
     currSpeed = math.min(currSpeed + chosenBoost, speedCap)
@@ -45,7 +48,6 @@ hum.Jumping:Connect(function()
     hrp.CustomPhysicalProperties = origProps
 end)
 
--- heartbeat update
 RunService.Heartbeat:Connect(function(delta)
     local moveDir = hum.MoveDirection
     local hzVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
@@ -65,14 +67,12 @@ RunService.Heartbeat:Connect(function(delta)
     end
 
     local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude
-
     if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
         currSpeed = baseSpeed
         hum.WalkSpeed = baseSpeed
         sliding = false
         hrp.CustomPhysicalProperties = origProps
     end
-
     lastHzSpeed = hzSpeedNow
 
     if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
@@ -81,25 +81,23 @@ RunService.Heartbeat:Connect(function(delta)
             hrp.CustomPhysicalProperties = slipProps
             hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
         end
-
-        currSpeed = math.max(baseSpeed, currSpeed - decelRate * delta)
+        currSpeed = math.max(baseSpeed, currSpeed - decelRate*delta)
         hum.WalkSpeed = currSpeed
-
         local velHz = hrp.Velocity * Vector3.new(1,0,1)
         if velHz.Magnitude > baseSpeed then
-            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+            hrp.Velocity = Vector3.new(lastDir.X*currSpeed, hrp.Velocity.Y, lastDir.Z*currSpeed)
         else
-            sliding = false
-            hrp.CustomPhysicalProperties = origProps
-            hum.WalkSpeed = baseSpeed
-            currSpeed = baseSpeed
+            sliding=false
+            hrp.CustomPhysicalProperties=origProps
+            hum.WalkSpeed=baseSpeed
+            currSpeed=baseSpeed
         end
-    elseif moveDir.Magnitude == 0 then
-        currSpeed = baseSpeed
-        hum.WalkSpeed = baseSpeed
-        sliding = false
-        hrp.CustomPhysicalProperties = origProps
+    elseif moveDir.Magnitude==0 then
+        currSpeed=baseSpeed
+        hum.WalkSpeed=baseSpeed
+        sliding=false
+        hrp.CustomPhysicalProperties=origProps
     else
-        hum.WalkSpeed = currSpeed
+        hum.WalkSpeed=currSpeed
     end
 end)
