@@ -6,6 +6,10 @@ local char = plr.Character or plr.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
+-- boosted jump height (HL-style 67 jump)
+hum.UseJumpPower = true
+hum.JumpPower = 67
+
 local baseSpeed = 16
 local speedCap = 100
 local decelRate = 50
@@ -27,11 +31,6 @@ local lastDir = Vector3.new(0,0,0)
 local sliding = false
 local airAccelStrength = 67 -- tweak this for faster direction change
 
--- set HL-like jump height
-local hlJumpStuds = 4.5 -- HL jump max height converted to Roblox studs
-local robloxDefaultJumpPower = 50 -- default Roblox jump (~7.2 studs)
-hum.JumpPower = math.floor(robloxDefaultJumpPower * (hlJumpStuds / 7.2)) -- ~31
-
 -- jump hook
 hum.Jumping:Connect(function()
     local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
@@ -39,8 +38,6 @@ hum.Jumping:Connect(function()
     hum.WalkSpeed = currSpeed
     sliding = false
     hrp.CustomPhysicalProperties = origProps
-    -- reinforce HL jump height
-    hum.JumpPower = math.floor(robloxDefaultJumpPower * (hlJumpStuds / 7.2))
 end)
 
 -- heartbeat update
@@ -52,6 +49,7 @@ RunService.Heartbeat:Connect(function(delta)
     if moveDir.Magnitude > 0 and not hum.FloorMaterial then  
         local desiredDir = moveDir.Unit  
         local currentDir = hzVel.Magnitude > 0 and hzVel.Unit or desiredDir  
+        -- interpolate direction slightly towards input  
         local newDir = (currentDir + desiredDir * airAccelStrength * delta).Unit  
         hrp.Velocity = Vector3.new(newDir.X * hzVel.Magnitude, hrp.Velocity.Y, newDir.Z * hzVel.Magnitude)  
     end  
@@ -77,11 +75,11 @@ RunService.Heartbeat:Connect(function(delta)
             hrp.CustomPhysicalProperties = slipProps  
             hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)  
         end  
-        currSpeed = math.max(baseSpeed, currSpeed - decelRate*delta)  
+        currSpeed = math.max(baseSpeed, currSpeed - decelRate * delta)  
         hum.WalkSpeed = currSpeed  
         local velHz = hrp.Velocity * Vector3.new(1,0,1)  
         if velHz.Magnitude > baseSpeed then  
-            hrp.Velocity = Vector3.new(lastDir.X*currSpeed, hrp.Velocity.Y, lastDir.Z*currSpeed)  
+            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)  
         else  
             sliding=false  
             hrp.CustomPhysicalProperties=origProps  
