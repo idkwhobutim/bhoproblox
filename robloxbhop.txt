@@ -8,7 +8,7 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- boosted jump height (HL-style SIX SEVEEN jump)
 hum.UseJumpPower = true
-hum.JumpPower = 40
+hum.JumpPower = 34
 
 local baseSpeed = 16
 local speedCap = 100
