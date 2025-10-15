@@ -9,7 +9,7 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local baseSpeed = 16
 local speedCap = 100
 local decelRate = 50
-local lowFriction = 0.4 -- less slippery
+local lowFriction = 0.7 -- less slippery
 local currSpeed = baseSpeed
 
 -- weighted jumpBoosts (mostly 2.3-2.5)
