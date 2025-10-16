@@ -1,4 +1,4 @@
--- fixed bhop + instant air steering (pc + mobile)
+-- bhop + instant air steering + ground sliding (pc + mobile)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -9,21 +9,18 @@ local char = plr.Character or plr.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
--- keep humanoid intact (no PlatformStand) so animations/jumppower stay normal
--- hum.PlatformStand = false  -- intentionally not set
-
--- settings (kept your values)
+-- settings
 local baseSpeed = 17
 local speedCap = 100
 local decelRate = 50
 local lowFriction = 0.7
 local currSpeed = baseSpeed
 
--- weighted bhop boosts (kept)
+-- bhop boosts
 local jumpBoostWeights = {[2.3]=30,[2.4]=30,[2.5]=30,[2.6]=5,[2.7]=5}
 local weightedJumpBoosts = {}
 for boost, weight in pairs(jumpBoostWeights) do
-    for i = 1, weight do table.insert(weightedJumpBoosts, boost) end
+    for i=1,weight do table.insert(weightedJumpBoosts,boost) end
 end
 
 -- physics props
@@ -35,27 +32,24 @@ local lastDir = Vector3.new(0,0,0)
 local sliding = false
 
 -- air steering tuning
-local airTurnStrength = 14    -- how strongly we lerp direction each second (higher = snappier)
-local microPull = 0.0001      -- tiny directional nudge to help bypass built-in smoothing (keeps mag)
+local airTurnStrength = 14
+local microPull = 0.0001
 
 -- jump hook: increase currSpeed (bhop)
 hum.Jumping:Connect(function()
-    -- only apply boost if we are roughly grounded or just left ground — still works client-side
     local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
     currSpeed = math.min(currSpeed + chosenBoost, speedCap)
-    -- set humanoid walk speed for ground movement (ground will apply it)
     hum.WalkSpeed = currSpeed
     sliding = false
     hrp.CustomPhysicalProperties = origProps
 end)
 
--- helper: get player input vector (works PC keyboard + mobile thumbstick)
+-- get move input (PC + mobile)
 local function getMoveInput()
     local md = plr.MoveDirection
     if md and md.Magnitude > 0.001 then
         return Vector3.new(md.X, 0, md.Z).Unit
     end
-    -- fallback to humanoid MoveDirection (sometimes better in some control schemes)
     local hd = hum.MoveDirection
     if hd and hd.Magnitude > 0.001 then
         return Vector3.new(hd.X, 0, hd.Z).Unit
@@ -66,57 +60,46 @@ end
 -- main loop
 RunService.Heartbeat:Connect(function(dt)
     local moveInput = getMoveInput()
-    local hzVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+    local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
     local hzSpeed = hzVel.Magnitude
-
     local grounded = hum.FloorMaterial ~= Enum.Material.Air and hum.FloorMaterial ~= nil
 
-    -- AIR: instant-style steering WITHOUT changing horizontal speed magnitude
+    -- AIR steering (instant Half-Life style)
     if not grounded and moveInput.Magnitude > 0 and hzSpeed > 0.001 then
-        -- compute desired direction in world-space (moveInput is already camera-relative via MoveDirection)
         local desiredDir = moveInput
-
-        -- lerp current dir -> desired dir (preserve magnitude)
-        local currentDir = (hzVel.Magnitude > 0) and hzVel.Unit or desiredDir
-        local t = math.clamp(airTurnStrength * dt, 0, 1) -- fraction this frame
-        local lerped = currentDir:Lerp(desiredDir, t)
-
-        -- tiny micro-pull nudge to overcome hidden smoothing; then renormalize to preserve speed
+        local currentDir = hzVel.Magnitude > 0 and hzVel.Unit or desiredDir
+        local t = math.clamp(airTurnStrength * dt,0,1)
+        local lerped = currentDir:Lerp(desiredDir,t)
         local blended = lerped + desiredDir * microPull
         if blended.Magnitude > 0 then
             local newDir = blended.Unit
             hrp.Velocity = Vector3.new(newDir.X * hzSpeed, hrp.Velocity.Y, newDir.Z * hzSpeed)
         end
-
-        -- ensure humanoid walk speed isn't fighting physics mid-air
         hum.WalkSpeed = baseSpeed
     end
 
-    -- GROUND handling: preserve original bhop/slide logic
+    -- GROUND movement & sliding
     if grounded then
         if moveInput.Magnitude > 0 then
+            -- moving on ground
             lastDir = moveInput
             sliding = false
             hrp.CustomPhysicalProperties = origProps
-
-            -- use currSpeed for ground movement
             hum.WalkSpeed = currSpeed
-            -- also ensure HRP velocity roughly matches WalkSpeed direction (doesn't fight engine)
             local targetHz = moveInput * currSpeed
             hrp.Velocity = Vector3.new(targetHz.X, hrp.Velocity.Y, targetHz.Z)
         else
-            -- no input on ground -> sliding / decel if we had speed
+            -- no input -> sliding
             if currSpeed > baseSpeed then
                 if not sliding then
                     sliding = true
                     hrp.CustomPhysicalProperties = slipProps
                     hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
                 end
-
                 currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
                 hum.WalkSpeed = currSpeed
 
-                local velHz = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+                local velHz = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
                 if velHz.Magnitude > baseSpeed then
                     local dir = velHz.Unit
                     hrp.Velocity = Vector3.new(dir.X * currSpeed, hrp.Velocity.Y, dir.Z * currSpeed)
@@ -135,8 +118,8 @@ RunService.Heartbeat:Connect(function(dt)
         end
     end
 
-    -- anti-stall: if horizontal velocity suddenly drops (collided), reset speeds
-    local hzSpeedNow = (Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)).Magnitude
+    -- anti-stall: reset speed if huge velocity drop
+    local hzSpeedNow = (Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)).Magnitude
     if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
         currSpeed = baseSpeed
         hum.WalkSpeed = baseSpeed
