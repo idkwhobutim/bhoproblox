@@ -9,8 +9,15 @@ local hrp = char:WaitForChild("HumanoidRootPart")
 local baseSpeed = 16
 local speedCap = 100
 local decelRate = 50
-local lowFriction = 0.7
+local lowFriction = 0.7 -- less slippery
 local currSpeed = baseSpeed
+
+-- weighted jumpBoosts (mostly 2.3-2.5)
+local jumpBoostWeights = {[2.3]=30,[2.4]=30,[2.5]=30,[2.6]=5,[2.7]=5}
+local weightedJumpBoosts = {}
+for boost, weight in pairs(jumpBoostWeights) do
+    for i=1,weight do table.insert(weightedJumpBoosts,boost) end
+end
 
 local origProps = hrp.CustomPhysicalProperties or PhysicalProperties.new(0.7,0.3,0.5,1,1)
 local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origProps.Elasticity,100,origProps.ElasticityWeight)
@@ -18,23 +25,35 @@ local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origPro
 local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
-local airTurnRate = 67 -- higher = faster air turning
-local cam = workspace.CurrentCamera
 
+-- jump hook
+hum.Jumping:Connect(function()
+    local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
+    currSpeed = math.min(currSpeed + chosenBoost, speedCap)
+    hum.WalkSpeed = currSpeed
+    sliding = false
+    hrp.CustomPhysicalProperties = origProps
+end)
+
+-- main heartbeat loop
 RunService.Heartbeat:Connect(function(dt)
     local moveDir = hum.MoveDirection
-    local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
-    local speed = hzVel.Magnitude
+    local hzVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
 
-    -- AIR TURNING (Half-Life style)
+    -- ✅ real Half-Life style air acceleration
     if not hum.FloorMaterial and moveDir.Magnitude > 0 then
-        local camLook = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
-        local desiredDir = (moveDir + camLook).Unit
-        local newDir = hzVel.Magnitude > 0 and hzVel.Unit:Lerp(desiredDir, math.clamp(airTurnRate * dt, 0, 1)) or desiredDir
-        hrp.Velocity = Vector3.new(newDir.X * speed, hrp.Velocity.Y, newDir.Z * speed)
+        local wishDir = moveDir.Unit
+        local wishSpeed = 50 -- directional pull (higher = more air control)
+        local accel = 250 -- acceleration rate (increase for faster turns)
+
+        local currentSpeed = hzVel:Dot(wishDir)
+        local addSpeed = wishSpeed - currentSpeed
+        if addSpeed > 0 then
+            local accelSpeed = math.min(accel * dt * wishSpeed, addSpeed)
+            hrp.Velocity += Vector3.new(wishDir.X * accelSpeed, 0, wishDir.Z * accelSpeed)
+        end
     end
 
-    -- ground slide + reset stuff
     if moveDir.Magnitude > 0 then
         lastDir = moveDir.Unit
         sliding = false
@@ -62,17 +81,17 @@ RunService.Heartbeat:Connect(function(dt)
         if velHz.Magnitude > baseSpeed then
             hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
         else
-            sliding=false
-            hrp.CustomPhysicalProperties=origProps
-            hum.WalkSpeed=baseSpeed
-            currSpeed=baseSpeed
+            sliding = false
+            hrp.CustomPhysicalProperties = origProps
+            hum.WalkSpeed = baseSpeed
+            currSpeed = baseSpeed
         end
-    elseif moveDir.Magnitude==0 then
-        currSpeed=baseSpeed
-        hum.WalkSpeed=baseSpeed
-        sliding=false
-        hrp.CustomPhysicalProperties=origProps
+    elseif moveDir.Magnitude == 0 then
+        currSpeed = baseSpeed
+        hum.WalkSpeed = baseSpeed
+        sliding = false
+        hrp.CustomPhysicalProperties = origProps
     else
-        hum.WalkSpeed=currSpeed
+        hum.WalkSpeed = currSpeed
     end
 end)
