@@ -23,7 +23,7 @@ local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origPro
 
 local sliding = false
 local lastDir = Vector3.new(0,0,0)
-local airControl = 150 -- higher = stronger air steering (like HL air accel)
+local airControl = 676767 -- higher = stronger air steering (like HL air accel)
 
 -- jumping = speed boost
 hum.Jumping:Connect(function()
