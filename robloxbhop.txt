@@ -43,7 +43,7 @@ RunService.Heartbeat:Connect(function(dt)
 	if not hum.FloorMaterial and moveDir.Magnitude > 0 then
 		local wishDir = moveDir.Unit
 		local wishSpeed = hzVel.Magnitude
-		local control = 300 -- steering strength (higher = snappier)
+		local control = 777 -- steering strength (higher = snappier)
 		local targetVel = wishDir * wishSpeed
 		-- instant correction: kills roblox inertia
 		hrp.Velocity = Vector3.new(
