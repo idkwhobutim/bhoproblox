@@ -1,7 +1,4 @@
--- cross-platform custom movement (pc + mobile)
--- uses MoveDirection (thumbstick) primarily, falls back to WASD
--- custom physics: instant air steering (preserve horizontal speed), ground sliding, no jump-power changes
-
+-- CUSTOM MOVEMENT: PC + Mobile, Half-Life style air control, baseSpeed 17
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -10,144 +7,137 @@ local Workspace = game:GetService("Workspace")
 local plr = Players.LocalPlayer
 repeat RunService.RenderStepped:Wait() until plr
 local char = plr.Character or plr.CharacterAdded:Wait()
-local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
+local hum = char:WaitForChild("Humanoid")
 
--- disable default humanoid movement so engine owns motion (keeps JumpPower intact)
-hum.PlatformStand = true
+hum.PlatformStand = true -- disable default humanoid movement
 
--- user-tweakable values (kept from your old script)
+-- movement settings
 local baseSpeed = 17
 local speedCap = 100
 local decelRate = 50
 local lowFriction = 0.7
 local currSpeed = baseSpeed
+local gravity = -196.2
 
 local origProps = hrp.CustomPhysicalProperties or PhysicalProperties.new(0.7,0.3,0.5,1,1)
 local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origProps.Elasticity,100,origProps.ElasticityWeight)
 
--- internal state
-local velocity = Vector3.new(0,0,0)      -- full world-space velocity
-local kbInput = Vector3.new(0,0,0)       -- WASD keyboard vector (camera-space Z+X)
+-- state
+local velocity = Vector3.zero
+local kbInput = Vector3.zero
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
+local grounded = false
 
--- helper: ray ground check (short)
-local function onGround()
-	local origin = hrp.Position
+-- helper: ground check
+local function checkGround()
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = {char}
 	params.FilterType = Enum.RaycastFilterType.Blacklist
-	local res = Workspace:Raycast(origin, Vector3.new(0,-3.5,0), params)
-	return res ~= nil
+	local result = Workspace:Raycast(hrp.Position, Vector3.new(0,-3.5,0), params)
+	return result and true or false
 end
 
--- keyboard (PC) input: add/subtract X/Z components in local input space
+-- keyboard input
 UserInputService.InputBegan:Connect(function(input, gpe)
 	if gpe then return end
-	if input.KeyCode == Enum.KeyCode.W then kbInput = kbInput + Vector3.new(0,0,-1) end
-	if input.KeyCode == Enum.KeyCode.S then kbInput = kbInput + Vector3.new(0,0,1) end
-	if input.KeyCode == Enum.KeyCode.A then kbInput = kbInput + Vector3.new(-1,0,0) end
-	if input.KeyCode == Enum.KeyCode.D then kbInput = kbInput + Vector3.new(1,0,0) end
+	if input.KeyCode == Enum.KeyCode.W then kbInput += Vector3.new(0,0,-1) end
+	if input.KeyCode == Enum.KeyCode.S then kbInput += Vector3.new(0,0,1) end
+	if input.KeyCode == Enum.KeyCode.A then kbInput += Vector3.new(-1,0,0) end
+	if input.KeyCode == Enum.KeyCode.D then kbInput += Vector3.new(1,0,0) end
 end)
 UserInputService.InputEnded:Connect(function(input, gpe)
 	if gpe then return end
-	if input.KeyCode == Enum.KeyCode.W then kbInput = kbInput - Vector3.new(0,0,-1) end
-	if input.KeyCode == Enum.KeyCode.S then kbInput = kbInput - Vector3.new(0,0,1) end
-	if input.KeyCode == Enum.KeyCode.A then kbInput = kbInput - Vector3.new(-1,0,0) end
-	if input.KeyCode == Enum.KeyCode.D then kbInput = kbInput - Vector3.new(1,0,0) end
+	if input.KeyCode == Enum.KeyCode.W then kbInput -= Vector3.new(0,0,-1) end
+	if input.KeyCode == Enum.KeyCode.S then kbInput -= Vector3.new(0,0,1) end
+	if input.KeyCode == Enum.KeyCode.A then kbInput -= Vector3.new(-1,0,0) end
+	if input.KeyCode == Enum.KeyCode.D then kbInput -= Vector3.new(1,0,0) end
 end)
 
--- jumping: respect the humanoid's JumpPower (we DO NOT change it). trigger vertical velocity manually.
+-- jump input
 hum.Jumping:Connect(function()
-	-- only jump if we're grounded based on our own check
-	if onGround() then
-		-- use humanoid's JumpPower property as jump velocity (no modification to it)
-		local jp = hum.JumpPower or 50
-		velocity = Vector3.new(velocity.X, jp, velocity.Z)
+	if grounded then
+		velocity = Vector3.new(velocity.X, hum.JumpPower, velocity.Z)
 	end
 end)
 
--- main loop: read input (thumbstick or keyboard), apply custom movement
+-- main loop
 RunService.Heartbeat:Connect(function(dt)
-	-- get player input: prefer keyboard if active, else player.MoveDirection (works for mobile thumbstick)
-	local moveDir = Vector3.new(0,0,0)
+	grounded = checkGround()
+
+	-- get input direction (keyboard preferred, else MoveDirection for mobile)
+	local moveDir = Vector3.zero
 	if kbInput.Magnitude > 0 then
-		-- convert keyboard local X/Z into camera-space direction
 		local cam = Workspace.CurrentCamera
 		if cam then
-			local camForward = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
-			local camRight = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
-			local wish = (camRight.Unit * kbInput.X) + (camForward.Unit * kbInput.Z)
-			if wish.Magnitude > 0 then moveDir = wish.Unit end
+			local camForward = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
+			local camRight = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z).Unit
+			moveDir = (camRight * kbInput.X + camForward * kbInput.Z)
+			if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
 		end
 	else
-		-- use player MoveDirection (thumbstick / controller / default controls)
 		local md = plr.MoveDirection
-		-- plr.MoveDirection is already camera relative in Roblox, so map X/Z into camera axes:
-		if md and md.Magnitude > 0 then
-			-- md is in world-space already, use it directly
-			moveDir = Vector3.new(md.X, 0, md.Z).Unit
-		end
+		if md.Magnitude > 0 then moveDir = Vector3.new(md.X,0,md.Z).Unit end
 	end
 
-	local grounded = onGround()
+	-- AIR CONTROL: instant horizontal steering
+	local hzVel = Vector3.new(velocity.X,0,velocity.Z)
+	if not grounded and moveDir.Magnitude > 0 and hzVel.Magnitude > 0 then
+		hzVel = moveDir * hzVel.Magnitude
+	end
 
-	-- ******** AIR CONTROL: instant steering, preserve horizontal speed magnitude ********
-	if not grounded then
-		local hzSpeed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
-		if moveDir.Magnitude > 0 and hzSpeed > 0 then
-			-- instant reorient horizontal direction to moveDir while keeping magnitude
-			local newHz = moveDir * hzSpeed
-			velocity = Vector3.new(newHz.X, velocity.Y, newHz.Z)
-		end
-	else
-		-- ******** GROUND CONTROL ********
+	-- GROUND CONTROL
+	if grounded then
 		if moveDir.Magnitude > 0 then
-			-- direct ground movement (no humanoid)
-			local newHz = moveDir * currSpeed
-			velocity = Vector3.new(newHz.X, velocity.Y, newHz.Z)
+			hzVel = moveDir * currSpeed
 			lastDir = moveDir
 			sliding = false
 			hrp.CustomPhysicalProperties = origProps
 		else
-			-- no input on ground: sliding behavior if currSpeed > baseSpeed (preserve your old logic)
 			if currSpeed > baseSpeed then
 				if not sliding then
 					sliding = true
 					hrp.CustomPhysicalProperties = slipProps
-					velocity = Vector3.new(lastDir.X * currSpeed, velocity.Y, lastDir.Z * currSpeed)
+					hzVel = lastDir * currSpeed
 				end
-				-- slow down over time
-				currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
-				-- update horizontal velocity magnitude to match currSpeed if needed
-				local hz = Vector3.new(velocity.X,0,velocity.Z)
-				if hz.Magnitude > 0 then
-					local dir = hz.Unit
-					velocity = Vector3.new(dir.X * currSpeed, velocity.Y, dir.Z * currSpeed)
+				currSpeed = math.max(baseSpeed, currSpeed - decelRate*dt)
+				if hzVel.Magnitude > 0 then
+					hzVel = hzVel.Unit * currSpeed
 				end
-				-- when slowed enough, clear sliding
 				if currSpeed <= baseSpeed then
 					sliding = false
 					hrp.CustomPhysicalProperties = origProps
 				end
 			else
-				-- fully stopped on ground
 				sliding = false
 				hrp.CustomPhysicalProperties = origProps
-				velocity = Vector3.new(0, 0, 0)
+				hzVel = Vector3.zero
 				currSpeed = baseSpeed
 			end
 		end
 	end
 
-	-- apply gravity when airborne
+	-- apply horizontal velocity
+	velocity = Vector3.new(hzVel.X, velocity.Y, hzVel.Z)
+
+	-- apply gravity
 	if not grounded then
-		velocity = velocity + Vector3.new(0, -196.2, 0) * dt
+		velocity += Vector3.new(0, gravity * dt, 0)
 	else
-		velocity = Vector3.new(velocity.X, 0, velocity.Z) -- lock vertical to 0 when grounded
+		velocity = Vector3.new(velocity.X,0,velocity.Z)
 	end
 
-	-- apply movement: direct HRP position update (custom engine)
-	hrp.CFrame = hrp.CFrame + velocity * dt
+	-- move HRP while preventing falling through floor
+	local newPos = hrp.Position + velocity*dt
+	local ray = Workspace:Raycast(newPos, Vector3.new(0,-3.5,0), RaycastParams.new())
+	if ray then
+		-- snap to floor if close
+		if newPos.Y < ray.Position.Y + 2 then
+			newPos = Vector3.new(newPos.X, ray.Position.Y + 2, newPos.Z)
+			velocity = Vector3.new(velocity.X,0,velocity.Z)
+		end
+	end
+
+	hrp.CFrame = CFrame.new(newPos)
 end)
