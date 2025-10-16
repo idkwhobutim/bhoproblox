@@ -25,7 +25,7 @@ local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origPro
 local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
-local airAccelStrength = 67 -- tweak this for faster direction change
+local airAccelStrength = 676767 -- tweak this for faster direction change
 
 -- jump hook
 hum.Jumping:Connect(function()
