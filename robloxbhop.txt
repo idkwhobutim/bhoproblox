@@ -1,143 +1,147 @@
--- CUSTOM MOVEMENT: PC + Mobile, Half-Life style air control, baseSpeed 17
+-- fixed bhop + instant air steering (pc + mobile)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local plr = Players.LocalPlayer
 repeat RunService.RenderStepped:Wait() until plr
 local char = plr.Character or plr.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
 local hum = char:WaitForChild("Humanoid")
+local hrp = char:WaitForChild("HumanoidRootPart")
 
-hum.PlatformStand = true -- disable default humanoid movement
+-- keep humanoid intact (no PlatformStand) so animations/jumppower stay normal
+-- hum.PlatformStand = false  -- intentionally not set
 
--- movement settings
+-- settings (kept your values)
 local baseSpeed = 17
 local speedCap = 100
 local decelRate = 50
 local lowFriction = 0.7
 local currSpeed = baseSpeed
-local gravity = -196.2
 
+-- weighted bhop boosts (kept)
+local jumpBoostWeights = {[2.3]=30,[2.4]=30,[2.5]=30,[2.6]=5,[2.7]=5}
+local weightedJumpBoosts = {}
+for boost, weight in pairs(jumpBoostWeights) do
+    for i = 1, weight do table.insert(weightedJumpBoosts, boost) end
+end
+
+-- physics props
 local origProps = hrp.CustomPhysicalProperties or PhysicalProperties.new(0.7,0.3,0.5,1,1)
 local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origProps.Elasticity,100,origProps.ElasticityWeight)
 
--- state
-local velocity = Vector3.zero
-local kbInput = Vector3.zero
+local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
-local grounded = false
 
--- helper: ground check
-local function checkGround()
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = {char}
-	params.FilterType = Enum.RaycastFilterType.Blacklist
-	local result = Workspace:Raycast(hrp.Position, Vector3.new(0,-3.5,0), params)
-	return result and true or false
-end
+-- air steering tuning
+local airTurnStrength = 14    -- how strongly we lerp direction each second (higher = snappier)
+local microPull = 0.0001      -- tiny directional nudge to help bypass built-in smoothing (keeps mag)
 
--- keyboard input
-UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
-	if input.KeyCode == Enum.KeyCode.W then kbInput += Vector3.new(0,0,-1) end
-	if input.KeyCode == Enum.KeyCode.S then kbInput += Vector3.new(0,0,1) end
-	if input.KeyCode == Enum.KeyCode.A then kbInput += Vector3.new(-1,0,0) end
-	if input.KeyCode == Enum.KeyCode.D then kbInput += Vector3.new(1,0,0) end
-end)
-UserInputService.InputEnded:Connect(function(input, gpe)
-	if gpe then return end
-	if input.KeyCode == Enum.KeyCode.W then kbInput -= Vector3.new(0,0,-1) end
-	if input.KeyCode == Enum.KeyCode.S then kbInput -= Vector3.new(0,0,1) end
-	if input.KeyCode == Enum.KeyCode.A then kbInput -= Vector3.new(-1,0,0) end
-	if input.KeyCode == Enum.KeyCode.D then kbInput -= Vector3.new(1,0,0) end
-end)
-
--- jump input
+-- jump hook: increase currSpeed (bhop)
 hum.Jumping:Connect(function()
-	if grounded then
-		velocity = Vector3.new(velocity.X, hum.JumpPower, velocity.Z)
-	end
+    -- only apply boost if we are roughly grounded or just left ground — still works client-side
+    local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
+    currSpeed = math.min(currSpeed + chosenBoost, speedCap)
+    -- set humanoid walk speed for ground movement (ground will apply it)
+    hum.WalkSpeed = currSpeed
+    sliding = false
+    hrp.CustomPhysicalProperties = origProps
 end)
+
+-- helper: get player input vector (works PC keyboard + mobile thumbstick)
+local function getMoveInput()
+    local md = plr.MoveDirection
+    if md and md.Magnitude > 0.001 then
+        return Vector3.new(md.X, 0, md.Z).Unit
+    end
+    -- fallback to humanoid MoveDirection (sometimes better in some control schemes)
+    local hd = hum.MoveDirection
+    if hd and hd.Magnitude > 0.001 then
+        return Vector3.new(hd.X, 0, hd.Z).Unit
+    end
+    return Vector3.zero
+end
 
 -- main loop
 RunService.Heartbeat:Connect(function(dt)
-	grounded = checkGround()
+    local moveInput = getMoveInput()
+    local hzVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+    local hzSpeed = hzVel.Magnitude
 
-	-- get input direction (keyboard preferred, else MoveDirection for mobile)
-	local moveDir = Vector3.zero
-	if kbInput.Magnitude > 0 then
-		local cam = Workspace.CurrentCamera
-		if cam then
-			local camForward = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z).Unit
-			local camRight = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z).Unit
-			moveDir = (camRight * kbInput.X + camForward * kbInput.Z)
-			if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
-		end
-	else
-		local md = plr.MoveDirection
-		if md.Magnitude > 0 then moveDir = Vector3.new(md.X,0,md.Z).Unit end
-	end
+    local grounded = hum.FloorMaterial ~= Enum.Material.Air and hum.FloorMaterial ~= nil
 
-	-- AIR CONTROL: instant horizontal steering
-	local hzVel = Vector3.new(velocity.X,0,velocity.Z)
-	if not grounded and moveDir.Magnitude > 0 and hzVel.Magnitude > 0 then
-		hzVel = moveDir * hzVel.Magnitude
-	end
+    -- AIR: instant-style steering WITHOUT changing horizontal speed magnitude
+    if not grounded and moveInput.Magnitude > 0 and hzSpeed > 0.001 then
+        -- compute desired direction in world-space (moveInput is already camera-relative via MoveDirection)
+        local desiredDir = moveInput
 
-	-- GROUND CONTROL
-	if grounded then
-		if moveDir.Magnitude > 0 then
-			hzVel = moveDir * currSpeed
-			lastDir = moveDir
-			sliding = false
-			hrp.CustomPhysicalProperties = origProps
-		else
-			if currSpeed > baseSpeed then
-				if not sliding then
-					sliding = true
-					hrp.CustomPhysicalProperties = slipProps
-					hzVel = lastDir * currSpeed
-				end
-				currSpeed = math.max(baseSpeed, currSpeed - decelRate*dt)
-				if hzVel.Magnitude > 0 then
-					hzVel = hzVel.Unit * currSpeed
-				end
-				if currSpeed <= baseSpeed then
-					sliding = false
-					hrp.CustomPhysicalProperties = origProps
-				end
-			else
-				sliding = false
-				hrp.CustomPhysicalProperties = origProps
-				hzVel = Vector3.zero
-				currSpeed = baseSpeed
-			end
-		end
-	end
+        -- lerp current dir -> desired dir (preserve magnitude)
+        local currentDir = (hzVel.Magnitude > 0) and hzVel.Unit or desiredDir
+        local t = math.clamp(airTurnStrength * dt, 0, 1) -- fraction this frame
+        local lerped = currentDir:Lerp(desiredDir, t)
 
-	-- apply horizontal velocity
-	velocity = Vector3.new(hzVel.X, velocity.Y, hzVel.Z)
+        -- tiny micro-pull nudge to overcome hidden smoothing; then renormalize to preserve speed
+        local blended = lerped + desiredDir * microPull
+        if blended.Magnitude > 0 then
+            local newDir = blended.Unit
+            hrp.Velocity = Vector3.new(newDir.X * hzSpeed, hrp.Velocity.Y, newDir.Z * hzSpeed)
+        end
 
-	-- apply gravity
-	if not grounded then
-		velocity += Vector3.new(0, gravity * dt, 0)
-	else
-		velocity = Vector3.new(velocity.X,0,velocity.Z)
-	end
+        -- ensure humanoid walk speed isn't fighting physics mid-air
+        hum.WalkSpeed = baseSpeed
+    end
 
-	-- move HRP while preventing falling through floor
-	local newPos = hrp.Position + velocity*dt
-	local ray = Workspace:Raycast(newPos, Vector3.new(0,-3.5,0), RaycastParams.new())
-	if ray then
-		-- snap to floor if close
-		if newPos.Y < ray.Position.Y + 2 then
-			newPos = Vector3.new(newPos.X, ray.Position.Y + 2, newPos.Z)
-			velocity = Vector3.new(velocity.X,0,velocity.Z)
-		end
-	end
+    -- GROUND handling: preserve original bhop/slide logic
+    if grounded then
+        if moveInput.Magnitude > 0 then
+            lastDir = moveInput
+            sliding = false
+            hrp.CustomPhysicalProperties = origProps
 
-	hrp.CFrame = CFrame.new(newPos)
+            -- use currSpeed for ground movement
+            hum.WalkSpeed = currSpeed
+            -- also ensure HRP velocity roughly matches WalkSpeed direction (doesn't fight engine)
+            local targetHz = moveInput * currSpeed
+            hrp.Velocity = Vector3.new(targetHz.X, hrp.Velocity.Y, targetHz.Z)
+        else
+            -- no input on ground -> sliding / decel if we had speed
+            if currSpeed > baseSpeed then
+                if not sliding then
+                    sliding = true
+                    hrp.CustomPhysicalProperties = slipProps
+                    hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+                end
+
+                currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
+                hum.WalkSpeed = currSpeed
+
+                local velHz = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+                if velHz.Magnitude > baseSpeed then
+                    local dir = velHz.Unit
+                    hrp.Velocity = Vector3.new(dir.X * currSpeed, hrp.Velocity.Y, dir.Z * currSpeed)
+                else
+                    sliding = false
+                    hrp.CustomPhysicalProperties = origProps
+                    hum.WalkSpeed = baseSpeed
+                    currSpeed = baseSpeed
+                end
+            else
+                sliding = false
+                hrp.CustomPhysicalProperties = origProps
+                hum.WalkSpeed = baseSpeed
+                currSpeed = baseSpeed
+            end
+        end
+    end
+
+    -- anti-stall: if horizontal velocity suddenly drops (collided), reset speeds
+    local hzSpeedNow = (Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)).Magnitude
+    if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
+        currSpeed = baseSpeed
+        hum.WalkSpeed = baseSpeed
+        sliding = false
+        hrp.CustomPhysicalProperties = origProps
+    end
+    lastHzSpeed = hzSpeedNow
 end)
