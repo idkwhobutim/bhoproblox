@@ -6,11 +6,19 @@ local char = plr.Character or plr.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local baseSpeed = 17
+local baseSpeed = 16
 local speedCap = 100
 local decelRate = 50
-local lowFriction = 0.7 -- less slippery
+local lowFriction = 0.7
 local currSpeed = baseSpeed
+
+local jumpBoostWeights = {[2.3]=30,[2.4]=30,[2.5]=30,[2.6]=5,[2.7]=5}
+local weightedJumpBoosts = {}
+for boost, weight in pairs(jumpBoostWeights) do
+	for i=1,weight do
+		table.insert(weightedJumpBoosts,boost)
+	end
+end
 
 local origProps = hrp.CustomPhysicalProperties or PhysicalProperties.new(0.7,0.3,0.5,1,1)
 local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origProps.Elasticity,100,origProps.ElasticityWeight)
@@ -19,63 +27,70 @@ local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
 
--- main heartbeat loop
+hum.Jumping:Connect(function()
+	local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
+	currSpeed = math.min(currSpeed + chosenBoost, speedCap)
+	hum.WalkSpeed = currSpeed
+	sliding = false
+	hrp.CustomPhysicalProperties = origProps
+end)
+
 RunService.Heartbeat:Connect(function(dt)
-    local moveDir = hum.MoveDirection
-    local hzVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+	local moveDir = hum.MoveDirection
+	local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
 
-    -- ✅ Half-Life style air acceleration
-    if not hum.FloorMaterial and moveDir.Magnitude > 0 then
-        local wishDir = moveDir.Unit
-        local wishSpeed = 50
-        local accel = 250
+	--  full air control with inertia override
+	if not hum.FloorMaterial and moveDir.Magnitude > 0 then
+		local wishDir = moveDir.Unit
+		local wishSpeed = hzVel.Magnitude
+		local control = 360 -- steering strength (higher = snappier)
+		local targetVel = wishDir * wishSpeed
+		-- instant correction: kills roblox inertia
+		hrp.Velocity = Vector3.new(
+			targetVel.X,
+			hrp.Velocity.Y,
+			targetVel.Z
+		) + (wishDir * control * dt)
+	end
 
-        local currentSpeed = hzVel:Dot(wishDir)
-        local addSpeed = wishSpeed - currentSpeed
-        if addSpeed > 0 then
-            local accelSpeed = math.min(accel * dt * wishSpeed, addSpeed)
-            hrp.Velocity += Vector3.new(wishDir.X * accelSpeed, 0, wishDir.Z * accelSpeed)
-        end
-    end
+	if moveDir.Magnitude > 0 then
+		lastDir = moveDir.Unit
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	end
 
-    if moveDir.Magnitude > 0 then
-        lastDir = moveDir.Unit
-        sliding = false
-        hrp.CustomPhysicalProperties = origProps
-    end
+	local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude
+	if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
+		currSpeed = baseSpeed
+		hum.WalkSpeed = baseSpeed
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	end
+	lastHzSpeed = hzSpeedNow
 
-    local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude
-    if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
-        currSpeed = baseSpeed
-        hum.WalkSpeed = baseSpeed
-        sliding = false
-        hrp.CustomPhysicalProperties = origProps
-    end
-    lastHzSpeed = hzSpeedNow
-
-    if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
-        if not sliding then
-            sliding = true
-            hrp.CustomPhysicalProperties = slipProps
-            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
-        end
-        currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
-        hum.WalkSpeed = currSpeed
-        local velHz = hrp.Velocity * Vector3.new(1,0,1)
-        if velHz.Magnitude > baseSpeed then
-            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
-        else
-            sliding = false
-            hrp.CustomPhysicalProperties = origProps
-            hum.WalkSpeed = baseSpeed
-            currSpeed = baseSpeed
-        end
-    elseif moveDir.Magnitude == 0 then
-        currSpeed = baseSpeed
-        hum.WalkSpeed = baseSpeed
-        sliding = false
-        hrp.CustomPhysicalProperties = origProps
-    else
-        hum.WalkSpeed = currSpeed
-    end
+	if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
+		if not sliding then
+			sliding = true
+			hrp.CustomPhysicalProperties = slipProps
+			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+		end
+		currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
+		hum.WalkSpeed = currSpeed
+		local velHz = hrp.Velocity * Vector3.new(1,0,1)
+		if velHz.Magnitude > baseSpeed then
+			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+		else
+			sliding = false
+			hrp.CustomPhysicalProperties = origProps
+			hum.WalkSpeed = baseSpeed
+			currSpeed = baseSpeed
+		end
+	elseif moveDir.Magnitude == 0 then
+		currSpeed = baseSpeed
+		hum.WalkSpeed = baseSpeed
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	else
+		hum.WalkSpeed = currSpeed
+	end
 end)
