@@ -1,10 +1,14 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local plr = Players.LocalPlayer
 local char = plr.Character or plr.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
+
+-- keep this high if you want instant camera-based redirection (no speed gain)
+local airAccelStrength = 200
 
 local baseSpeed = 16
 local speedCap = 100
@@ -25,7 +29,12 @@ local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origPro
 local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
-local airAccelStrength = 676767 -- tweak this for faster direction change
+
+-- helper: safe unit
+local function safeUnit(v)
+    local m = v.Magnitude
+    if m > 0 then return v / m else return Vector3.new(0,0,0) end
+end
 
 -- jump hook
 hum.Jumping:Connect(function()
@@ -38,56 +47,78 @@ end)
 
 -- heartbeat update
 RunService.Heartbeat:Connect(function(delta)
-    local moveDir = hum.MoveDirection
+    local moveDir = hum.MoveDirection -- world-space movement vector
     local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
+    local hzSpeed = hzVel.Magnitude
 
-    -- AIR ACCELERATION: redirect only  
-    if moveDir.Magnitude > 0 and not hum.FloorMaterial then  
-        local desiredDir = moveDir.Unit  
-        local currentDir = hzVel.Magnitude > 0 and hzVel.Unit or desiredDir  
-        -- interpolate direction slightly towards input  
-        local newDir = (currentDir + desiredDir * airAccelStrength * delta).Unit  
-        hrp.Velocity = Vector3.new(newDir.X * hzVel.Magnitude, hrp.Velocity.Y, newDir.Z * hzVel.Magnitude)  
-    end  
+    -- AIR ACCELERATION: camera-based redirect only (no speed gain)
+    if moveDir.Magnitude > 0 and not hum.FloorMaterial then
+        local cam = Workspace.CurrentCamera
+        if cam and cam.CFrame then
+            -- build camera-space forward/right on XZ plane
+            local camForward = Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z)
+            local camRight = Vector3.new(cam.CFrame.RightVector.X, 0, cam.CFrame.RightVector.Z)
+            camForward = safeUnit(camForward)
+            camRight = safeUnit(camRight)
 
-    if moveDir.Magnitude > 0 then  
-        lastDir = moveDir.Unit  
-        sliding = false  
-        hrp.CustomPhysicalProperties = origProps  
-    end  
+            -- map the player's input (moveDir) into camera-space directions
+            -- moveDir is in world space but we want input projected into camera axes
+            local inputX = moveDir:Dot(camRight) -- how much movement is along camera right
+            local inputZ = moveDir:Dot(camForward) -- how much movement is along camera forward
+            local desiredDir = safeUnit(camForward * inputZ + camRight * inputX)
 
-    local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude  
-    if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then  
-        currSpeed = baseSpeed  
-        hum.WalkSpeed = baseSpeed  
-        sliding = false  
-        hrp.CustomPhysicalProperties = origProps  
-    end  
-    lastHzSpeed = hzSpeedNow  
+            -- if there is a useful desired direction, interpolate current horizontal dir toward it
+            if desiredDir.Magnitude > 0 then
+                local currentDir = hzSpeed > 0 and hzVel.Unit or desiredDir
+                local mixed = currentDir + desiredDir * (airAccelStrength * delta)
+                -- if mixed is nearly zero skip to avoid NaN
+                if mixed.Magnitude > 0 then
+                    local newDir = mixed.Unit
+                    -- keep same horizontal speed, only change direction
+                    hrp.Velocity = Vector3.new(newDir.X * hzSpeed, hrp.Velocity.Y, newDir.Z * hzSpeed)
+                end
+            end
+        end
+    end
 
-    if moveDir.Magnitude == 0 and currSpeed > baseSpeed then  
-        if not sliding then  
-            sliding = true  
-            hrp.CustomPhysicalProperties = slipProps  
-            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)  
-        end  
-        currSpeed = math.max(baseSpeed, currSpeed - decelRate * delta)  
-        hum.WalkSpeed = currSpeed  
-        local velHz = hrp.Velocity * Vector3.new(1,0,1)  
-        if velHz.Magnitude > baseSpeed then  
-            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)  
-        else  
-            sliding=false  
-            hrp.CustomPhysicalProperties=origProps  
-            hum.WalkSpeed=baseSpeed  
-            currSpeed=baseSpeed  
-        end  
-    elseif moveDir.Magnitude==0 then  
-        currSpeed=baseSpeed  
-        hum.WalkSpeed=baseSpeed  
-        sliding=false  
-        hrp.CustomPhysicalProperties=origProps  
-    else  
-        hum.WalkSpeed=currSpeed  
+    if moveDir.Magnitude > 0 then
+        lastDir = moveDir.Unit
+        sliding = false
+        hrp.CustomPhysicalProperties = origProps
+    end
+
+    local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude
+    if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
+        currSpeed = baseSpeed
+        hum.WalkSpeed = baseSpeed
+        sliding = false
+        hrp.CustomPhysicalProperties = origProps
+    end
+    lastHzSpeed = hzSpeedNow
+
+    if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
+        if not sliding then
+            sliding = true
+            hrp.CustomPhysicalProperties = slipProps
+            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+        end
+        currSpeed = math.max(baseSpeed, currSpeed - decelRate * delta)
+        hum.WalkSpeed = currSpeed
+        local velHz = hrp.Velocity * Vector3.new(1,0,1)
+        if velHz.Magnitude > baseSpeed then
+            hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+        else
+            sliding = false
+            hrp.CustomPhysicalProperties = origProps
+            hum.WalkSpeed = baseSpeed
+            currSpeed = baseSpeed
+        end
+    elseif moveDir.Magnitude == 0 then
+        currSpeed = baseSpeed
+        hum.WalkSpeed = baseSpeed
+        sliding = false
+        hrp.CustomPhysicalProperties = origProps
+    else
+        hum.WalkSpeed = currSpeed
     end
 end)
