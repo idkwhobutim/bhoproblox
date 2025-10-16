@@ -6,7 +6,7 @@ local char = plr.Character or plr.CharacterAdded:Wait()
 local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
-local baseSpeed = 16
+local baseSpeed = 20
 local speedCap = 100
 local decelRate = 50
 local lowFriction = 0.7
