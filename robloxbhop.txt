@@ -18,7 +18,7 @@ local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origPro
 local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
-local airTurnRate = 20 -- higher = faster air turning
+local airTurnRate = 67 -- higher = faster air turning
 local cam = workspace.CurrentCamera
 
 RunService.Heartbeat:Connect(function(dt)
