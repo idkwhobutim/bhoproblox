@@ -39,10 +39,17 @@ RunService.Heartbeat:Connect(function(dt)
 	local moveDir = hum.MoveDirection
 	local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
 
-	-- full air control with smooth inertia
+	-- full air control with smooth inertia + random speed nerf
 	if not hum.FloorMaterial and moveDir.Magnitude > 0 then
 		local wishDir = moveDir.Unit
 		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+
+		-- small chance to decrease speed midair
+		if math.random() < 0.15 then -- 15% chance per frame
+			local nerfAmount = math.random(5,15) -- reduce speed by 5–15 studs/sec
+			currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)
+		end
+
 		local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)
 		local lerpStrength = 0.35 -- tweak 0.2–0.4 for more/less snappy air control
 		local newVel = airVel:Lerp(targetVel, lerpStrength)
