@@ -8,7 +8,6 @@ local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 -- Sound IDs
-local jumpSoundId = "rbxassetid://YOUR_JUMP_SOUND_ID"
 local walkSoundIds = {
 	"rbxassetid://123493222094354",
 	"rbxassetid://125828822010757",
