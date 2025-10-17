@@ -1,11 +1,29 @@
+-- bhop script + reliable per-step sounds + climbing per-step sounds
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
 
 local plr = Players.LocalPlayer
-local char = plr.Character or plr.CharacterAdded:Wait()
-local hum = char:WaitForChild("Humanoid")
-local hrp = char:WaitForChild("HumanoidRootPart")
 
+-- we'll keep references updated across respawns
+local char = plr.Character or plr.CharacterAdded:Wait()
+local function getHumAndHrp(c)
+	return c:WaitForChild("Humanoid"), c:WaitForChild("HumanoidRootPart")
+end
+local hum, hrp = getHumAndHrp(char)
+
+local function onCharacterAdded(c)
+	char = c
+	hum, hrp = getHumAndHrp(c)
+	-- re-create static jumpSound parented to new hrp
+	if jumpSound then
+		jumpSound:Destroy()
+	end
+	setupJumpSound() -- defined later
+end
+plr.CharacterAdded:Connect(onCharacterAdded)
+
+-- movement params (unchanged)
 local baseSpeed = 20
 local speedCap = 70
 local decelRate = 50
@@ -27,12 +45,7 @@ local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
 
--- audio setup
-local jumpSound = Instance.new("Sound")
-jumpSound.SoundId = "rbxassetid://JUMP_AUDIO_ID_HERE"
-jumpSound.Volume = 1
-jumpSound.Parent = hrp
-
+-- ********** audio ids (user-provided) **********
 local walkSounds = {
 	"rbxassetid://123493222094354",
 	"rbxassetid://125828822010757",
@@ -47,47 +60,44 @@ local climbSounds = {
 	"rbxassetid://77055118078641"
 }
 
-local currentWalkSound = nil
-local currentClimbSound = nil
+-- jump sound (one-shot) - change if you have another jump id
+local jumpSound = nil
+local function setupJumpSound()
+	if not hrp then return end
+	jumpSound = Instance.new("Sound")
+	jumpSound.SoundId = "rbxassetid://15835167421" -- hl-style jump id (change if you uploaded your own)
+	jumpSound.Volume = 1
+	jumpSound.Parent = hrp
+end
+setupJumpSound()
 
-local function playWalkSound()
-	if currentWalkSound then return end
-	local sound = Instance.new("Sound")
-	sound.SoundId = walkSounds[math.random(1,#walkSounds)]
-	sound.Volume = 0.7
-	sound.Looped = true
-	sound.Parent = hrp
-	sound:Play()
-	currentWalkSound = sound
+-- step timers (per-step playback instead of single looping sound)
+local walkStepTimer = 0
+local climbStepTimer = 0
+
+-- helper: play random one-shot sound attached to hrp, auto-clean with Debris
+local function playOneShot(id, volume)
+	if not hrp then return end
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.Volume = volume or 0.7
+	s.Looped = false
+	s.Parent = hrp
+	s:Play()
+	Debris:AddItem(s, 4)
 end
 
-local function stopWalkSound()
-	if currentWalkSound then
-		currentWalkSound:Stop()
-		currentWalkSound:Destroy()
-		currentWalkSound = nil
-	end
+-- compute step interval from speed (faster = smaller interval)
+local function computeStepInterval(speed)
+	-- base interval 0.45s at baseSpeed, down to 0.15s at high speed
+	-- tweak formula if needed
+	local extra = math.max(0, speed - baseSpeed)
+	local interval = 0.45 - (extra * 0.006) -- 0.006 scale chosen to feel good
+	if interval < 0.15 then interval = 0.15 end
+	return interval
 end
 
-local function playClimbSound()
-	if currentClimbSound then return end
-	local sound = Instance.new("Sound")
-	sound.SoundId = climbSounds[math.random(1,#climbSounds)]
-	sound.Volume = 0.7
-	sound.Looped = true
-	sound.Parent = hrp
-	sound:Play()
-	currentClimbSound = sound
-end
-
-local function stopClimbSound()
-	if currentClimbSound then
-		currentClimbSound:Stop()
-		currentClimbSound:Destroy()
-		currentClimbSound = nil
-	end
-end
-
+-- jump boost still same
 hum.Jumping:Connect(function()
 	local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
 	currSpeed = math.min(currSpeed + chosenBoost, speedCap)
@@ -95,83 +105,114 @@ hum.Jumping:Connect(function()
 	sliding = false
 	hrp.CustomPhysicalProperties = origProps
 
-	jumpSound:Play()
+	-- play jump sound once
+	if jumpSound and jumpSound.Parent == hrp then
+		-- :Play() on the single jumpSound instance is fine
+		jumpSound:Play()
+	else
+		-- fallback create one-shot if instance missing
+		playOneShot("rbxassetid://15835167421", 1)
+	end
 end)
 
+-- main loop
 RunService.Heartbeat:Connect(function(dt)
+	-- guard for respawn timing
+	if not hum or not hrp then
+		return
+	end
+
 	local moveDir = hum.MoveDirection
 	local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
+	local onFloor = hum.FloorMaterial ~= Enum.Material.Air
+	local state = hum:GetState()
 
-	-- full air control + random speed nerf  
-	if not hum.FloorMaterial and moveDir.Magnitude > 0 and hum:GetState() ~= Enum.HumanoidStateType.Climbing then  
-		local wishDir = moveDir.Unit  
-		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)  
+	-- full air control + random speed nerf (unchanged semantics)
+	if not onFloor and moveDir.Magnitude > 0 and state ~= Enum.HumanoidStateType.Climbing then
+		local wishDir = moveDir.Unit
+		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
 
-		if math.random() < 0.15 then  
-			local nerfAmount = math.random(5,15)  
-			currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)  
-		end  
+		if math.random() < 0.15 then
+			local nerfAmount = math.random(5,15)
+			currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)
+		end
 
-		local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)    
-		local lerpStrength = 0.35  
-		local newVel = airVel:Lerp(targetVel, lerpStrength)  
+		local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)
+		local lerpStrength = 0.35
+		local newVel = airVel:Lerp(targetVel, lerpStrength)
 		hrp.Velocity = Vector3.new(newVel.X, hrp.Velocity.Y, newVel.Z)
-	end  
-
-	-- walking sound logic
-	if moveDir.Magnitude > 0 and hum.FloorMaterial then
-		playWalkSound()
-	else
-		stopWalkSound()
 	end
 
-	-- climbing sound logic
-	if hum:GetState() == Enum.HumanoidStateType.Climbing then
-		playClimbSound()
+	-- WALKING per-step sound logic (one-shot random sample)
+	if onFloor and hzVel.Magnitude > baseSpeed and moveDir.Magnitude > 0 then
+		walkStepTimer = walkStepTimer - dt
+		if walkStepTimer <= 0 then
+			-- play a random walk sample
+			playOneShot(walkSounds[math.random(1, #walkSounds)], 0.7)
+			-- reset timer based on speed
+			walkStepTimer = computeStepInterval(hzVel.Magnitude)
+		end
 	else
-		stopClimbSound()
+		-- reset timer when not walking (prevents immediate double-step on start)
+		walkStepTimer = 0
 	end
 
-	if moveDir.Magnitude > 0 then  
-		lastDir = moveDir.Unit  
-		sliding = false  
-		hrp.CustomPhysicalProperties = origProps  
-	end  
+	-- CLIMBING per-step sound logic (only when truly climbing)
+	if state == Enum.HumanoidStateType.Climbing then
+		climbStepTimer = climbStepTimer - dt
+		-- choose interval slightly faster/slower than walk depending on vertical speed
+		local climbSpeed = math.abs(hrp.Velocity.Y)
+		if climbStepTimer <= 0 then
+			playOneShot(climbSounds[math.random(1, #climbSounds)], 0.7)
+			-- base climb interval (feel) - tweak if needed
+			local interval = 0.35 - (climbSpeed * 0.01)
+			if interval < 0.12 then interval = 0.12 end
+			if interval > 0.6 then interval = 0.6 end
+			climbStepTimer = interval
+		end
+	else
+		climbStepTimer = 0
+	end
 
-	local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude  
-	if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then  
-		currSpeed = baseSpeed  
-		hum.WalkSpeed = baseSpeed  
-		sliding = false  
-		hrp.CustomPhysicalProperties = origProps  
-	end  
-	lastHzSpeed = hzSpeedNow  
+	-- remaining movement logic unchanged
+	if moveDir.Magnitude > 0 then
+		lastDir = moveDir.Unit
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	end
 
-	if moveDir.Magnitude == 0 and currSpeed > baseSpeed then  
-		if not sliding then  
-			sliding = true  
-			hrp.CustomPhysicalProperties = slipProps  
-			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)  
-		end  
-		currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)  
-		hum.WalkSpeed = currSpeed  
-		local velHz = hrp.Velocity * Vector3.new(1,0,1)  
-		if velHz.Magnitude > baseSpeed then  
-			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)  
-		else  
-			sliding = false  
-			hrp.CustomPhysicalProperties = origProps  
-			hum.WalkSpeed = baseSpeed  
-			currSpeed = baseSpeed  
-		end  
-	elseif moveDir.Magnitude == 0 then  
-		currSpeed = baseSpeed  
-		hum.WalkSpeed = baseSpeed  
-		sliding = false  
-		hrp.CustomPhysicalProperties = origProps  
-		stopWalkSound()
-		stopClimbSound()
-	else  
-		hum.WalkSpeed = currSpeed  
+	local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude
+	if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
+		currSpeed = baseSpeed
+		hum.WalkSpeed = baseSpeed
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	end
+	lastHzSpeed = hzSpeedNow
+
+	if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
+		if not sliding then
+			sliding = true
+			hrp.CustomPhysicalProperties = slipProps
+			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+		end
+		currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
+		hum.WalkSpeed = currSpeed
+		local velHz = hrp.Velocity * Vector3.new(1,0,1)
+		if velHz.Magnitude > baseSpeed then
+			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+		else
+			sliding = false
+			hrp.CustomPhysicalProperties = origProps
+			hum.WalkSpeed = baseSpeed
+			currSpeed = baseSpeed
+		end
+	elseif moveDir.Magnitude == 0 then
+		currSpeed = baseSpeed
+		hum.WalkSpeed = baseSpeed
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	else
+		hum.WalkSpeed = currSpeed
 	end
 end)
