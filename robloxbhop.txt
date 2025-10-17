@@ -39,18 +39,14 @@ RunService.Heartbeat:Connect(function(dt)
 	local moveDir = hum.MoveDirection
 	local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
 
-	--  full air control with inertia override
+	-- full air control with smooth inertia
 	if not hum.FloorMaterial and moveDir.Magnitude > 0 then
 		local wishDir = moveDir.Unit
-		local wishSpeed = hzVel.Magnitude
-		local control = 360 -- steering strength (higher = snappier)
-		local targetVel = wishDir * wishSpeed
-		-- instant correction: kills roblox inertia
-		hrp.Velocity = Vector3.new(
-			targetVel.X,
-			hrp.Velocity.Y,
-			targetVel.Z
-		) + (wishDir * control * dt)
+		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+		local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)
+		local lerpStrength = 0.25 -- tweak 0.2–0.4 for more/less snappy air control
+		local newVel = airVel:Lerp(targetVel, lerpStrength)
+		hrp.Velocity = Vector3.new(newVel.X, hrp.Velocity.Y, newVel.Z)
 	end
 
 	if moveDir.Magnitude > 0 then
