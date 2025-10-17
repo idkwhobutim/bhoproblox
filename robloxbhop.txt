@@ -7,7 +7,7 @@ local hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 local baseSpeed = 20
-local speedCap = 100
+local speedCap = 70
 local decelRate = 50
 local lowFriction = 8
 local currSpeed = baseSpeed
