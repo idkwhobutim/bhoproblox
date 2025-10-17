@@ -44,7 +44,7 @@ RunService.Heartbeat:Connect(function(dt)
 		local wishDir = moveDir.Unit
 		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
 		local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)
-		local lerpStrength = 0.25 -- tweak 0.2–0.4 for more/less snappy air control
+		local lerpStrength = 0.35 -- tweak 0.2–0.4 for more/less snappy air control
 		local newVel = airVel:Lerp(targetVel, lerpStrength)
 		hrp.Velocity = Vector3.new(newVel.X, hrp.Velocity.Y, newVel.Z)
 	end
