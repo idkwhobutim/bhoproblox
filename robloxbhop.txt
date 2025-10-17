@@ -29,18 +29,23 @@ local sliding = false
 
 -- sounds setup
 local walkSound = Instance.new("Sound")
-walkSound.SoundId = "rbxassetid://6305502175" -- HL walking
-walkSound.Looped = true
+walkSound.SoundId = "rbxassetid://6305502175" -- HL walking footsteps
 walkSound.Volume = 0.5
+walkSound.Looped = false -- we’ll loop manually
 walkSound.Parent = hrp
 
 local jumpSound = Instance.new("Sound")
 jumpSound.SoundId = "rbxassetid://15835167421" -- HL jump
-jumpSound.Looped = false
 jumpSound.Volume = 1
+jumpSound.Looped = false
 jumpSound.Parent = hrp
 
-local wasOnFloor = hum.FloorMaterial ~= Enum.Material.Air
+-- manually loop walking footsteps
+walkSound.Ended:Connect(function()
+	if hum.FloorMaterial ~= Enum.Material.Air and (hrp.Velocity * Vector3.new(1,0,1)).Magnitude > baseSpeed then
+		walkSound:Play()
+	end
+end)
 
 hum.Jumping:Connect(function()
 	local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
@@ -57,7 +62,7 @@ RunService.Heartbeat:Connect(function(dt)
 	local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
 	local onFloor = hum.FloorMaterial ~= Enum.Material.Air
 
-	-- walking sound
+	-- walking footsteps
 	if onFloor and hzVel.Magnitude > baseSpeed then
 		if not walkSound.IsPlaying then
 			walkSound:Play()
@@ -68,14 +73,12 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 
-	wasOnFloor = onFloor
-
-	-- full air control with smooth inertia + random speed nerf
+	-- full air control + random speed nerf
 	if not onFloor and moveDir.Magnitude > 0 then
 		local wishDir = moveDir.Unit
-		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+		local airVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
 
-		if math.random() < 0.15 then -- 15% chance
+		if math.random() < 0.15 then
 			local nerfAmount = math.random(5,15)
 			currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)
 		end
