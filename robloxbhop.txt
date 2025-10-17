@@ -27,31 +27,61 @@ local lastHzSpeed = 0
 local lastDir = Vector3.new(0,0,0)
 local sliding = false
 
+-- sounds setup
+local walkSound = Instance.new("Sound")
+walkSound.SoundId = "rbxassetid://6305502175" -- HL walking
+walkSound.Looped = true
+walkSound.Volume = 0.5
+walkSound.Parent = hrp
+
+local jumpSound = Instance.new("Sound")
+jumpSound.SoundId = "rbxassetid://15835167421" -- HL jump
+jumpSound.Looped = false
+jumpSound.Volume = 1
+jumpSound.Parent = hrp
+
+local wasOnFloor = hum.FloorMaterial ~= Enum.Material.Air
+
 hum.Jumping:Connect(function()
 	local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
 	currSpeed = math.min(currSpeed + chosenBoost, speedCap)
 	hum.WalkSpeed = currSpeed
 	sliding = false
 	hrp.CustomPhysicalProperties = origProps
+	-- play jump sound
+	jumpSound:Play()
 end)
 
 RunService.Heartbeat:Connect(function(dt)
 	local moveDir = hum.MoveDirection
 	local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
+	local onFloor = hum.FloorMaterial ~= Enum.Material.Air
+
+	-- walking sound
+	if onFloor and hzVel.Magnitude > baseSpeed then
+		if not walkSound.IsPlaying then
+			walkSound:Play()
+		end
+	else
+		if walkSound.IsPlaying then
+			walkSound:Stop()
+		end
+	end
+
+	wasOnFloor = onFloor
 
 	-- full air control with smooth inertia + random speed nerf
-	if not hum.FloorMaterial and moveDir.Magnitude > 0 then
+	if not onFloor and moveDir.Magnitude > 0 then
 		local wishDir = moveDir.Unit
 		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
 
-		-- small chance to decrease speed midair
-		if math.random() < 0.15 then -- 15% chance per frame
-			local nerfAmount = math.random(5,15) -- reduce speed by 5–15 studs/sec
+		if math.random() < 0.15 then -- 15% chance
+			local nerfAmount = math.random(5,15)
 			currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)
 		end
 
 		local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)
-		local lerpStrength = 0.35 -- tweak 0.2–0.4 for more/less snappy air control
+		local lerpStrength = 0.35
 		local newVel = airVel:Lerp(targetVel, lerpStrength)
 		hrp.Velocity = Vector3.new(newVel.X, hrp.Velocity.Y, newVel.Z)
 	end
