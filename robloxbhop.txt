@@ -1,9 +1,94 @@
+-- project_remorse + advanced movement
+-- fully client-sided 
+-- smooth cam + inertia-based movement, zero sens nerf, zero shake bug
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-
+local StarterGui = game:GetService("StarterGui")
 local plr = Players.LocalPlayer
+local cam = workspace.CurrentCamera
+
+-- smooth camera settings
+local f, g, h = 15, 10, 70
+local offsetCF = CFrame.new()
+local j, k, l = h, 0, 5
+local hum
+local lastLand = 0
+
+-- bump for screen shake
+local function bump(power)
+	k = math.clamp(k + power, 0, 2)
+end
+
+local function hookHumanoid(char)
+	hum = char:WaitForChild("Humanoid")
+	hum.HealthChanged:Connect(function(v)
+		if v < hum.MaxHealth then bump(0.6) end
+	end)
+	hum.StateChanged:Connect(function(_, state)
+		if state == Enum.HumanoidStateType.Landed then
+			local t = tick()
+			if t - lastLand > 0.3 then
+				bump(0.25)
+				lastLand = t
+			end
+		end
+	end)
+end
+
+plr.CharacterAdded:Connect(hookHumanoid)
+if plr.Character then hookHumanoid(plr.Character) end
+
+-- invisible anchor to apply camera smoothing
+local anchor = Instance.new("Part")
+anchor.Anchored = true
+anchor.CanCollide = false
+anchor.Transparency = 1
+anchor.Parent = workspace
+
+RunService.RenderStepped:Connect(function(dt)
+	if not cam then return end
+
+	local baseCF = cam.CFrame
+	offsetCF = offsetCF:Lerp(CFrame.new(), f * dt)
+
+	if k > 0 then
+		-- reduce extreme shake + randomness
+		local shake = Vector3.new(
+			math.random(-100, 100)/500 * k,
+			math.random(-100, 100)/500 * k,
+			math.random(-100, 100)/500 * k
+		)
+		offsetCF *= CFrame.new(shake)
+		k = math.max(k - l * dt, 0)
+	end
+
+	local t = tick()
+	local idle = Vector3.new(math.sin(t * 2) * 0.05, math.abs(math.cos(t * 2)) * 0.03, 0)
+	offsetCF *= CFrame.new(idle)
+
+	anchor.CFrame = baseCF * offsetCF
+	cam.CFrame = anchor.CFrame
+	cam.FieldOfView += (j - cam.FieldOfView) * g * dt
+end)
+
+workspace.ChildAdded:Connect(function(obj)
+	if obj:IsA("Explosion") and (obj.Position - cam.CFrame.Position).Magnitude < 40 then
+		bump(1.2)
+	end
+end)
+
+StarterGui:SetCore("SendNotification", {
+	Title = "project_remorse by russki_krutoi",
+	Text = "smooth camera + inertia loaded ✅",
+	Duration = 5
+})
+
+--[[ ===============================
+       inertia movement system
+=================================]]
 local char = plr.Character or plr.CharacterAdded:Wait()
-local hum = char:WaitForChild("Humanoid")
+hum = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
 local baseSpeed = 20
@@ -15,89 +100,83 @@ local currSpeed = baseSpeed
 local jumpBoostWeights = {[2.3]=30,[2.4]=30,[2.5]=30,[2.6]=5,[2.7]=5}
 local weightedJumpBoosts = {}
 for boost, weight in pairs(jumpBoostWeights) do
-for i=1,weight do
-table.insert(weightedJumpBoosts,boost)
-end
+	for i=1, weight do
+		table.insert(weightedJumpBoosts, boost)
+	end
 end
 
-local origProps = hrp.CustomPhysicalProperties or PhysicalProperties.new(0.7,0.3,0.5,1,1)
-local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origProps.Elasticity,100,origProps.ElasticityWeight)
+local origProps = hrp.CustomPhysicalProperties or PhysicalProperties.new(0.7, 0.3, 0.5, 1, 1)
+local slipProps = PhysicalProperties.new(origProps.Density, lowFriction, origProps.Elasticity, 100, origProps.ElasticityWeight)
 
 local lastHzSpeed = 0
-local lastDir = Vector3.new(0,0,0)
+local lastDir = Vector3.new(0, 0, 0)
 local sliding = false
 
 hum.Jumping:Connect(function()
-local chosenBoost = weightedJumpBoosts[math.random(1,#weightedJumpBoosts)]
-currSpeed = math.min(currSpeed + chosenBoost, speedCap)
-hum.WalkSpeed = currSpeed
-sliding = false
-hrp.CustomPhysicalProperties = origProps
+	local chosenBoost = weightedJumpBoosts[math.random(1, #weightedJumpBoosts)]
+	currSpeed = math.min(currSpeed + chosenBoost, speedCap)
+	hum.WalkSpeed = currSpeed
+	sliding = false
+	hrp.CustomPhysicalProperties = origProps
 end)
 
 RunService.Heartbeat:Connect(function(dt)
-local moveDir = hum.MoveDirection
-local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
+	local moveDir = hum.MoveDirection
+	local hzVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
 
--- full air control with smooth inertia + random speed nerf
-if not hum.FloorMaterial and moveDir.Magnitude > 0 then
-local wishDir = moveDir.Unit
-local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
+	if not hum.FloorMaterial and moveDir.Magnitude > 0 then
+		local wishDir = moveDir.Unit
+		local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
 
--- small chance to decrease speed midair    
-if math.random() < 0.15 then -- 15% chance per frame    
-	local nerfAmount = math.random(5,15) -- reduce speed by 5–15 studs/sec    
-	currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)    
-end    
+		if math.random() < 0.15 then
+			local nerfAmount = math.random(5, 15)
+			currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)
+		end
 
-local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)    
-local lerpStrength = 0.35 -- tweak 0.2–0.4 for more/less snappy air control    
-local newVel = airVel:Lerp(targetVel, lerpStrength)    
-hrp.Velocity = Vector3.new(newVel.X, hrp.Velocity.Y, newVel.Z)
+		local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)
+		local lerpStrength = 0.35
+		local newVel = airVel:Lerp(targetVel, lerpStrength)
+		hrp.Velocity = Vector3.new(newVel.X, hrp.Velocity.Y, newVel.Z)
+	end
 
-end
+	if moveDir.Magnitude > 0 then
+		lastDir = moveDir.Unit
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	end
 
-if moveDir.Magnitude > 0 then
-lastDir = moveDir.Unit
-sliding = false
-hrp.CustomPhysicalProperties = origProps
-end
+	local hzSpeedNow = (hrp.Velocity * Vector3.new(1, 0, 1)).Magnitude
+	if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
+		currSpeed = baseSpeed
+		hum.WalkSpeed = baseSpeed
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	end
+	lastHzSpeed = hzSpeedNow
 
-local hzSpeedNow = (hrp.Velocity * Vector3.new(1,0,1)).Magnitude
-if hzSpeedNow < lastHzSpeed * 0.5 and lastHzSpeed > baseSpeed * 1.5 then
-currSpeed = baseSpeed
-hum.WalkSpeed = baseSpeed
-sliding = false
-hrp.CustomPhysicalProperties = origProps
-end
-lastHzSpeed = hzSpeedNow
-
-if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
-if not sliding then
-sliding = true
-hrp.CustomPhysicalProperties = slipProps
-hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
-end
-currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
-hum.WalkSpeed = currSpeed
-local velHz = hrp.Velocity * Vector3.new(1,0,1)
-if velHz.Magnitude > baseSpeed then
-hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
-else
-sliding = false
-hrp.CustomPhysicalProperties = origProps
-hum.WalkSpeed = baseSpeed
-currSpeed = baseSpeed
-end
-elseif moveDir.Magnitude == 0 then
-currSpeed = baseSpeed
-hum.WalkSpeed = baseSpeed
-sliding = false
-hrp.CustomPhysicalProperties = origProps
-else
-hum.WalkSpeed = currSpeed
-end
-
+	if moveDir.Magnitude == 0 and currSpeed > baseSpeed then
+		if not sliding then
+			sliding = true
+			hrp.CustomPhysicalProperties = slipProps
+			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+		end
+		currSpeed = math.max(baseSpeed, currSpeed - decelRate * dt)
+		hum.WalkSpeed = currSpeed
+		local velHz = hrp.Velocity * Vector3.new(1, 0, 1)
+		if velHz.Magnitude > baseSpeed then
+			hrp.Velocity = Vector3.new(lastDir.X * currSpeed, hrp.Velocity.Y, lastDir.Z * currSpeed)
+		else
+			sliding = false
+			hrp.CustomPhysicalProperties = origProps
+			hum.WalkSpeed = baseSpeed
+			currSpeed = baseSpeed
+		end
+	elseif moveDir.Magnitude == 0 then
+		currSpeed = baseSpeed
+		hum.WalkSpeed = baseSpeed
+		sliding = false
+		hrp.CustomPhysicalProperties = origProps
+	else
+		hum.WalkSpeed = currSpeed
+	end
 end)
-
-
