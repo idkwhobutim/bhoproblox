@@ -1,3 +1,4 @@
+-- fixed some parts of air control.
 task.spawn(function()
     task.wait(0.5)
     loadstring([[local Players = game:GetService("Players")
@@ -41,21 +42,13 @@ RunService.Heartbeat:Connect(function(dt)
     local moveDir = hum.MoveDirection
     local hzVel = Vector3.new(hrp.Velocity.X,0,hrp.Velocity.Z)
 
-    -- full air control with smooth inertia + random speed nerf
+    -- HL instant air control pro mode
     if not hum.FloorMaterial and moveDir.Magnitude > 0 then
         local wishDir = moveDir.Unit
-        local airVel = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
-
-        -- small chance to decrease speed midair
-        if math.random() < 0.15 then
-            local nerfAmount = math.random(5,15)
-            currSpeed = math.max(baseSpeed, currSpeed - nerfAmount)
-        end
-
-        local targetVel = wishDir * math.max(airVel.Magnitude, currSpeed)
-        local lerpStrength = 0.35
-        local newVel = airVel:Lerp(targetVel, lerpStrength)
-        hrp.Velocity = Vector3.new(newVel.X, hrp.Velocity.Y, newVel.Z)
+        local airSpeed = math.max(currSpeed, hzVel.Magnitude)
+        -- instant snap to direction, no inertia
+        hrp.Velocity = Vector3.new(wishDir.X * airSpeed, hrp.Velocity.Y, wishDir.Z * airSpeed)
+        currSpeed = airSpeed
     end
 
     if moveDir.Magnitude > 0 then
@@ -102,7 +95,7 @@ end)
 ]])()
 end)
 
--- second script, unchanged
+-- camera script (no changes within the update)
 task.spawn(function()
     task.wait(0.5)
     loadstring([[
