@@ -1,5 +1,5 @@
-spawn(function()
-
+task.spawn(function()
+task.wait(0.5)
 loadstring([[local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
@@ -100,7 +100,8 @@ else
 hum.WalkSpeed = currSpeed]])()
 end)
 
-spawn(function()
+task.spawn(function()
+task.wait(0.5)
 loadstring([[local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local StarterGui = game:GetService("StarterGui")
