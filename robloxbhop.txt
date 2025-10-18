@@ -100,3 +100,83 @@ end
 
 end)
 
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local plr = Players.LocalPlayer
+local cam = workspace.CurrentCamera
+
+local f, g, h = 15, 10, 70
+local offsetCF = CFrame.new()
+local j, k, l = h, 0, 5
+local hum
+local lastLand = 0
+
+local function bump(power)
+	k = math.clamp(k + power, 0, 2)
+end
+
+local function hookHumanoid(char)
+	hum = char:WaitForChild("Humanoid")
+	hum.HealthChanged:Connect(function(v)
+		if v < hum.MaxHealth then bump(0.6) end
+	end)
+	hum.StateChanged:Connect(function(_, state)
+		if state == Enum.HumanoidStateType.Landed then
+			local t = tick()
+			if t - lastLand > 0.3 then
+				bump(0.25)
+				lastLand = t
+			end
+		end
+	end)
+end
+
+plr.CharacterAdded:Connect(hookHumanoid)
+if plr.Character then hookHumanoid(plr.Character) end
+
+-- make a hidden part to hold our smooth offset; camera still looks at the character
+local anchor = Instance.new("Part")
+anchor.Anchored = true
+anchor.CanCollide = false
+anchor.Transparency = 1
+anchor.Parent = workspace
+
+RunService.RenderStepped:Connect(function(dt)
+	-- follow the current camera without overriding rotation
+	local baseCF = cam.CFrame
+	offsetCF = offsetCF:Lerp(CFrame.new(), f * dt)
+
+	if k > 0 then
+		local shake = Vector3.new(
+			math.random(-100,100)/100 * k,
+			math.random(-100,100)/100 * k,
+			math.random(-100,100)/100 * k
+		)
+		offsetCF = offsetCF * CFrame.new(shake)
+		k = math.max(k - l * dt, 0)
+	end
+
+	local t = tick()
+	local idle = Vector3.new(math.sin(t*2)*0.05, math.abs(math.cos(t*2))*0.03, 0)
+	offsetCF = offsetCF * CFrame.new(idle)
+
+	-- apply offset by moving the anchor, not the camera itself
+	anchor.CFrame = baseCF * offsetCF
+	cam.CFrame = anchor.CFrame
+
+	cam.FieldOfView += (j - cam.FieldOfView) * g * dt
+end)
+
+workspace.ChildAdded:Connect(function(obj)
+	if obj:IsA("Explosion") and (obj.Position - cam.CFrame.Position).Magnitude < 40 then
+		bump(1.2)
+	end
+end)
+
+StarterGui:SetCore("SendNotification", {
+	Title = "project_remorse made by russki_krutoi",
+	Text = "Smooth Camera Loaded ✅",
+	Duration = 5
+})
