@@ -243,7 +243,7 @@ local function half_descent()
 		humanoid.JumpPower = 50
 		humanoid.AutoRotate = true
 
-		task.wait(9) -- float + move freely
+		task.wait(4) -- float + move freely
 
 		-- start descent (will be caught by tween at 10s)
 		humanoid.WalkSpeed = 0
