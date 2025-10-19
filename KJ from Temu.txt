@@ -269,9 +269,92 @@ end)
 end
 
 
----
+----------------------
+-- reconnect on respawn
+player.CharacterAdded:Connect(function()
+    character = player.Character
+    humanoid = character:WaitForChild("Humanoid")
+    humanoidrootpart = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+end)
 
--- TOOLS
+local function sendChatMessage(message)
+    local chatService = game:GetService("TextChatService")
+    local defaultChat = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+
+    if chatService:FindFirstChild("TextChannels") then
+        chatService.TextChannels.RBXGeneral:SendAsync(message)
+    else
+        defaultChat.SayMessageRequest:FireServer(message, "All")
+    end
+end
+
+------------ final move function (GUI removed)
+
+local function final_move()
+    local SetSpeed = humanoid.WalkSpeed
+    humanoid.WalkSpeed = 0
+
+    local animations = {
+        "rbxassetid://74909569",
+        "rbxassetid://187951261",
+        "rbxassetid://28488254",
+        "rbxassetid://188632011",
+        "rbxassetid://182393478",
+    }
+
+    local loadedAnimations = {}
+    for _, animId in ipairs(animations) do
+        local anim = Instance.new("Animation")
+        anim.AnimationId = animId
+        table.insert(loadedAnimations, humanoid:LoadAnimation(anim))
+    end
+
+    local A1, A2, A3, A4, A5 = unpack(loadedAnimations)
+    A4.Looped = true
+
+    -- Animation Sequence with chat only
+    sendChatMessage("because with this...")
+    task.wait(1.6)
+    sendChatMessage("...it's finally over")
+    task.wait(0.4)
+    A1:Play()
+    A1.Stopped:Wait()
+
+    A2:Play()
+    task.wait(1.2)
+    A2:Stop()
+
+    A3:Play()
+    task.wait(0.3)
+    sendChatMessage("360 MLG series.")
+    task.wait(2.7)
+
+    A1:Play()
+    A1.Stopped:Wait()
+
+    A2:Play()
+    task.wait(1.2)
+    A2:Stop()
+
+    task.wait(1.1)
+    A4:Play()
+    task.wait(1.1)
+    A4:Stop()
+
+    task.wait(2)
+    A4:Play()
+    task.wait(0.8)
+    A4:Stop()
+
+    A5:Play()
+    sendChatMessage("MLG kickworks.")
+    task.wait(3)
+    A5:Stop()
+
+    humanoid.WalkSpeed = SetSpeed
+end
+
+--------- TOOLS --------
 
 local stoic_bomb_skill = Instance.new("Tool")
 stoic_bomb_skill.Name = "getrekt bomb"
@@ -301,4 +384,15 @@ half_descent_skill.Equipped:Connect(function()
 half_descent()
 task.wait()
 half_descent_skill.Parent = player.Backpack
+end)
+
+local final_move_tool = Instance.new("Tool")
+final_move_tool.Name = "MLG kickworks"
+final_move_tool.RequiresHandle = false
+final_move_tool.Parent = player.Backpack
+
+final_move_tool.Equipped:Connect(function()
+    task.spawn(final_move)
+    task.wait()
+    final_move_tool.Parent = player.Backpack
 end)
