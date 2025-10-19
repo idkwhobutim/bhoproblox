@@ -1,4 +1,4 @@
-task.wait() repeat task.wait() until game:IsLoaded()
+repeat task.wait() until game:IsLoaded()
 
 print("Loaded")
 
@@ -182,7 +182,7 @@ local function drop_kick()
 end
 
 ----------------------------------------------------------
--- HALF DESCENT (floating 4.5s, moveable, drop with pose, reset on landing)
+-- HALF DESCENT (full rise + drop + pose + landing reset)
 ----------------------------------------------------------
 local function half_descent()
 	if active_move then return end
@@ -190,61 +190,76 @@ local function half_descent()
 
 	local TweenService = game:GetService("TweenService")
 	local initial_position = humanoidrootpart.CFrame
+	local freezeVelo = true
 
-	-- store originals
+	-- store original joint C0s
 	local orig_rootc0 = rootjoint and rootjoint.C0 or nil
 	local rightShoulder = character:FindFirstChild("Right Shoulder", true)
 	local leftShoulder = character:FindFirstChild("Left Shoulder", true)
 	local neck = character:FindFirstChild("Neck", true)
+
 	local orig_right_C0 = rightShoulder and rightShoulder.C0 or nil
 	local orig_left_C0 = leftShoulder and leftShoulder.C0 or nil
 	local orig_neck_C0 = neck and neck.C0 or nil
 
-	-- pose in air
-	if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 * CFrame.Angles(0,0,math.rad(-18)) end
-	if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 * CFrame.new(0,-0.2,-0.35) * CFrame.Angles(math.rad(-65), math.rad(10), math.rad(-20)) end
-	if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 * CFrame.new(0,-0.05,0) * CFrame.Angles(math.rad(10), math.rad(-8), math.rad(-12)) end
-	if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10),0,math.rad(-8)) end
-
-	-- allow movement + jump while airborne
-	humanoid.WalkSpeed = 70
-	humanoid.JumpPower = 50
-	humanoid.AutoRotate = true
-
-	-- float 4.5s
-	local connection
-	connection = game:GetService("RunService").RenderStepped:Connect(function()
-		if humanoidrootpart and (tick() < tick() + 4.5) then
-			humanoidrootpart.Velocity = Vector3.zero
-		end
+	-- rise up
+	task.spawn(function()
+		local riseTween = TweenService:Create(humanoidrootpart, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = initial_position + Vector3.new(0, 120, 0)
+		})
+		riseTween:Play(); riseTween.Completed:Wait()
 	end)
-	task.wait(4.5)
-	connection:Disconnect()
 
-	-- drop naturally with pose
-	local dropConnection
-	dropConnection = game:GetService("RunService").RenderStepped:Connect(function()
-		if humanoidrootpart and humanoid.FloorMaterial ~= Enum.Material.Air then
-			dropConnection:Disconnect()
-			-- reset pose on landing
-			if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 end
-			if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 end
-			if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 end
-			if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 end
-			humanoid.WalkSpeed = 16
-			humanoid.JumpPower = 50
-			humanoid.AutoRotate = true
-			humanoid.HipHeight = 0
-			active_move = nil
-		end
+	-- movement in air + float for 4.5s
+	task.spawn(function()
+		local org_WalkSpeed = humanoid.WalkSpeed
+		local org_AutoRotate = humanoid.AutoRotate
+		local org_JumpPower = humanoid.JumpPower
+
+		humanoid.WalkSpeed = 70
+		humanoid.AutoRotate = true
+		humanoid.JumpPower = 50
+		freezeVelo = false
+
+		task.wait(4.5) -- float in air
+
+		-- drop with pose
+		freezeVelo = true
+
+		local connection
+		connection = game:GetService("RunService").RenderStepped:Connect(function()
+			if humanoidrootpart and freezeVelo then
+				humanoidrootpart.Velocity = Vector3.zero
+			end
+		end)
+
+		if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 * CFrame.Angles(0,0,math.rad(-18)) end
+		if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 * CFrame.new(0,-0.2,-0.35) * CFrame.Angles(math.rad(-65),math.rad(10),math.rad(-20)) end
+		if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 * CFrame.new(0,-0.05,0) * CFrame.Angles(math.rad(10),math.rad(-8),math.rad(-12)) end
+		if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10),0,math.rad(-8)) end
+
+		repeat task.wait() until humanoid.FloorMaterial ~= Enum.Material.Air
+
+		connection:Disconnect()
+		if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 end
+		if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 end
+		if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 end
+		if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 end
+
+		humanoid.WalkSpeed = 16
+		humanoid.AutoRotate = true
+		humanoid.JumpPower = 50
+		humanoid.HipHeight = 0
+		freezeVelo = false
+		active_move = nil
 	end)
 end
 
 ----------------------------------------------------------
--- TOOLS (including new Half Descent)
+-- TOOLS
 ----------------------------------------------------------
 local stoic_bomb_skill = Instance.new("Tool")
-stoic_bomb_skill.Name = "Stoic Bomb"
+stoic_bomb_skill.Name = "ohio bomb"
 stoic_bomb_skill.RequiresHandle = false
 stoic_bomb_skill.Parent = player.Backpack
 stoic_bomb_skill.Equipped:Connect(function()
@@ -254,7 +269,7 @@ stoic_bomb_skill.Equipped:Connect(function()
 end)
 
 local drop_kick_skill = Instance.new("Tool")
-drop_kick_skill.Name = "20-20-20 Dropkick"
+drop_kick_skill.Name = "67 mlg dropkick"
 drop_kick_skill.RequiresHandle = false
 drop_kick_skill.Parent = player.Backpack
 drop_kick_skill.Equipped:Connect(function()
@@ -264,7 +279,7 @@ drop_kick_skill.Equipped:Connect(function()
 end)
 
 local half_descent_skill = Instance.new("Tool")
-half_descent_skill.Name = "Half Descent"
+half_descent_skill.Name = "half ascend"
 half_descent_skill.RequiresHandle = false
 half_descent_skill.Parent = player.Backpack
 half_descent_skill.Equipped:Connect(function()
