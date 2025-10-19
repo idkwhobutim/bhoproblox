@@ -21,7 +21,7 @@ end)
 local active_move = nil
 
 ----------------------------------------------------------
--- STOIC BOMB
+-- STOIC BOMB (unchanged)
 ----------------------------------------------------------
 local function stoic_bomb()
 	if active_move then return end
@@ -108,7 +108,7 @@ local function stoic_bomb()
 end
 
 ----------------------------------------------------------
--- 20-20-20 DROPKICK
+-- 20-20-20 DROPKICK (unchanged)
 ----------------------------------------------------------
 local function drop_kick()
 	if active_move then return end
@@ -182,7 +182,7 @@ local function drop_kick()
 end
 
 ----------------------------------------------------------
--- HALF DESCENT
+-- HALF DESCENT (fixed & improved)
 ----------------------------------------------------------
 local function half_descent()
 	if active_move then return end
@@ -192,64 +192,126 @@ local function half_descent()
 	local TweenService = game:GetService("TweenService")
 	local initial_position = humanoidrootpart.CFrame
 
+	-- store originals for restoration
+	local orig_rootc0 = rootjoint and rootjoint.C0 or nil
+	local rightShoulder = character:FindFirstChild("Right Shoulder", true)
+	local leftShoulder = character:FindFirstChild("Left Shoulder", true)
+	local neck = character:FindFirstChild("Neck", true)
+
+	local orig_right_C0 = rightShoulder and rightShoulder.C0 or nil
+	local orig_left_C0 = leftShoulder and leftShoulder.C0 or nil
+	local orig_neck_C0 = neck and neck.C0 or nil
+
+	-- rise and pitch forward (pitch is negative to face nose->ground)
 	task.spawn(function()
 		local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 		local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 120, 0)})
 		tween:Play(); tween.Completed:Wait()
 
+		-- pitch forward ~85 degrees (use negative angle so nose faces ground)
 		local tiltTween = TweenService:Create(humanoidrootpart, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(85), 0, 0)
+			CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(-85), 0, 0)
 		})
 		tiltTween:Play(); tiltTween.Completed:Wait()
 	end)
 
+	-- movement enable/disable + speed buff window
 	task.spawn(function()
 		local org_WalkSpeed = humanoid.WalkSpeed
 		local org_AutoRotate = humanoid.AutoRotate
 		local org_JumpPower = humanoid.JumpPower
+
+		-- copy stoic bomb style disabling
 		humanoid.AutoRotate = false
 		humanoid.JumpPower = 0
-		task.wait(0.7)
+
+		task.wait(0.7) -- let tilt finish
+
+		-- allow player to move for 10s (70 speed)
 		humanoid.WalkSpeed = 70
 		freezeVelo = false
-		task.wait(10)
+
+		task.wait(10) -- player moves & lines up hit
+
+		-- freeze movement again before descent
 		humanoid.WalkSpeed = 0
 		freezeVelo = true
+
+		-- restore some things later after descent (done in descent thread)
 	end)
 
+	-- arm + torso/other-body tilt pose
 	task.spawn(function()
-		local rightShoulder = character:FindFirstChild("Right Shoulder", true)
-		if rightShoulder then
-			local originalC0 = rightShoulder.C0
-			rightShoulder.C0 = rightShoulder.C0 * CFrame.Angles(math.rad(70), math.rad(-20), 0)
-			task.wait(10.5)
-			rightShoulder.C0 = originalC0
+		-- try to tilt rootjoint (torso) to the left a bit
+		if rootjoint and orig_rootc0 then
+			-- tilt torso roll left ~20 degrees visually
+			rootjoint.C0 = orig_rootc0 * CFrame.Angles(0, 0, math.rad(-18))
 		end
+
+		-- right arm: down & forward (ready to punch)
+		if rightShoulder and orig_right_C0 then
+			-- position: slightly lower and forward, rotated forward so hand points downwards toward target
+			rightShoulder.C0 = orig_right_C0 * CFrame.new(0, -0.2, -0.35) * CFrame.Angles(math.rad(-65), math.rad(10), math.rad(-20))
+		end
+
+		-- left arm: adjust to look natural when torso tilts
+		if leftShoulder and orig_left_C0 then
+			leftShoulder.C0 = orig_left_C0 * CFrame.new(0, -0.05, 0) * CFrame.Angles(math.rad(10), math.rad(-8), math.rad(-12))
+		end
+
+		-- neck tilt a little to sell the pose
+		if neck and orig_neck_C0 then
+			neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10), 0, math.rad(-8))
+		end
+
+		-- hold pose for the charge + a little extra so timing matches other threads
+		task.wait(10.5)
+
+		-- restore joints after pose period (final restore also happens after descent to be safe)
+		if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 end
+		if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 end
+		if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 end
+		if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 end
 	end)
 
+	-- hold in air (prevent falling) while freezeVelo true, then descend to tracked pos
 	task.spawn(function()
 		local connection
 		connection = game:GetService("RunService").RenderStepped:Connect(function()
 			if not freezeVelo then return end
-			humanoidrootpart.Velocity = Vector3.zero
+			if humanoidrootpart then
+				humanoidrootpart.Velocity = Vector3.zero
+			end
 		end)
 
+		-- wait full charge window + safety
 		task.wait(11)
+
+		-- compute tracked final position based on current humanoid position (so it tracks where you moved)
+		local targetPos = humanoidrootpart and humanoidrootpart.Position or (initial_position and initial_position.Position) or Vector3.new(0,0,0)
+		-- drop to a point slightly above ground at current horizontal location
+		local downTargetCFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
+
 		local downTween = TweenService:Create(humanoidrootpart, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			CFrame = initial_position + Vector3.new(0, 5, 0)
+			CFrame = downTargetCFrame
 		})
 		downTween:Play(); downTween.Completed:Wait()
+
 		connection:Disconnect()
+
+		-- restore movement settings
 		humanoid.WalkSpeed = 16
 		humanoid.AutoRotate = true
 		humanoid.JumpPower = 50
+		humanoid.HipHeight = 0
+
 		freezeVelo = false
 		active_move = nil
 	end)
 end
 
 ----------------------------------------------------------
--- TOOLS
+-- TOOLS (including new Half Descent)
 ----------------------------------------------------------
 local stoic_bomb_skill = Instance.new("Tool")
 stoic_bomb_skill.Name = "Stoic Bomb"
@@ -272,7 +334,7 @@ drop_kick_skill.Equipped:Connect(function()
 end)
 
 local half_descent_skill = Instance.new("Tool")
-half_descent_skill.Name = "Half-Descent"
+half_descent_skill.Name = "Half Descent"
 half_descent_skill.RequiresHandle = false
 half_descent_skill.Parent = player.Backpack
 half_descent_skill.Equipped:Connect(function()
