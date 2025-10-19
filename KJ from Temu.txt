@@ -1,4 +1,5 @@
 repeat task.wait() until game:IsLoaded()
+
 print("Loaded")
 
 local players = game:GetService("Players")
@@ -6,340 +7,280 @@ local player = players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:FindFirstChildOfClass('Humanoid')
 local humanoidrootpart = character:FindFirstChild('HumanoidRootPart') or character.PrimaryPart
-local rootjoint = humanoidrootpart:WaitForChild('RootJoint')
+local rootjoint = humanoidrootpart:WaitForChild'RootJoint'
 local rootc0 = rootjoint.C0
 
 player.CharacterAdded:Connect(function()
-    character = player.Character
-    humanoid = character:FindFirstChildOfClass('Humanoid')
-    humanoidrootpart = character:FindFirstChild('HumanoidRootPart') or character.PrimaryPart
-    rootjoint = humanoidrootpart:WaitForChild('RootJoint')
-    rootc0 = rootjoint.C0
+character = player.Character
+humanoid = character:FindFirstChildOfClass('Humanoid')
+humanoidrootpart = character:FindFirstChild('HumanoidRootPart') or character.PrimaryPart
+rootjoint = humanoidrootpart:WaitForChild'RootJoint'
+rootc0 = rootjoint.C0
 end)
 
 local active_move = nil
 
-----------------------------------------------------------
+
+---
+
 -- STOIC BOMB
-----------------------------------------------------------
+
 local function stoic_bomb()
-    if active_move then return end
-    active_move = "Stoic Bomb"
+if active_move then return end
+active_move = "Stoic Bomb"
 
-    local flute_track
-    local hold_track
-    local freezeVelo = true
+local flute_track  
+local hold_track  
+local freezeVelo = true  
 
-    task.spawn(function()
-        task.wait(0.2)
-        local flute_anim = Instance.new("Animation")
-        flute_anim.AnimationId = "rbxassetid://52154760"
-        local hold_anim = Instance.new("Animation")
-        hold_anim.AnimationId = "rbxassetid://48138189"
+task.spawn(function()  
+	task.wait(0.2)  
+	local flute_anim = Instance.new("Animation")  
+	flute_anim.AnimationId = "rbxassetid://52154760"  
+	local hold_anim = Instance.new("Animation")  
+	hold_anim.AnimationId = "rbxassetid://48138189"  
 
-        flute_track = humanoid:LoadAnimation(flute_anim)
-        hold_track = humanoid:LoadAnimation(hold_anim)
-        flute_track:Play(); hold_track:Play();
+	flute_track = humanoid:LoadAnimation(flute_anim)  
+	hold_track = humanoid:LoadAnimation(hold_anim)  
+	flute_track:Play(); hold_track:Play();  
 
-        task.wait(1)
-        flute_track:AdjustSpeed(0); hold_track:AdjustSpeed(0);
-    end)
+	task.wait(1)  
+	flute_track:AdjustSpeed(0); flute_track:AdjustSpeed(0);  
+end)  
 
-    task.spawn(function()
-        task.wait(0.2)
-        local TweenService = game:GetService("TweenService")
-        local initial_position = humanoidrootpart.CFrame
+task.spawn(function()  
+	task.wait(0.2)  
+	local TweenService = game:GetService("TweenService")  
+	local initial_position = humanoidrootpart.CFrame  
 
-        local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-        local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 140, 0)})
-        tween:Play(); tween.Completed:Wait()
+	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)  
+	local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 140, 0)})  
+	tween:Play(); tween.Completed:Wait()  
 
-        tweenInfo = TweenInfo.new(0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 150, 0)})
-        tween:Play(); tween.Completed:Wait()
+	tweenInfo = TweenInfo.new(0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)  
+	tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 150, 0)})  
+	tween:Play(); tween.Completed:Wait()  
 
-        tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 8, 0)})
-        tween:Play(); tween.Completed:Wait()
+	tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)  
+	tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 8, 0)})  
+	tween:Play(); tween.Completed:Wait()  
 
-        tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 5, 0)})
-        tween:Play(); tween.Completed:Wait()
+	tweenInfo = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)  
+	tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 5, 0)})  
+	tween:Play(); tween.Completed:Wait()  
 
-        task.wait(0.75)
-        flute_track:Stop(); hold_track:Stop();
-        freezeVelo = false
-    end)
+	task.wait(0.75)  
+	flute_track:Stop(); hold_track:Stop();  
+	freezeVelo = false  
+end)  
 
-    task.spawn(function()
-        local TweenService = game:GetService("TweenService")
-        local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-        local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(-25), 0, 0)})
-        tween:Play(); tween.Completed:Wait()
+task.spawn(function()  
+	local TweenService = game:GetService("TweenService")  
+	local tweenInfo = TweenInfo.new(0.18, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)  
+	local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(-25), 0, 0)})  
+	tween:Play(); tween.Completed:Wait()  
 
-        task.wait(0.21)
-        humanoidrootpart.CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(160), 0, 0)
-        tweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-        tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(340), 0, 0)})
-        tween:Play(); tween.Completed:Wait()
-    end)
+	task.wait(0.21)  
+	humanoidrootpart.CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(160), 0, 0)  
+	tweenInfo = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)  
+	tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(340), 0, 0)})  
+	tween:Play(); tween.Completed:Wait()  
+end)  
 
-    task.spawn(function()
-        for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do track:Stop() end
-        local connection; connection = game:GetService("RunService").RenderStepped:Connect(function()
-            if not freezeVelo then connection:Disconnect(); return end
-            humanoidrootpart.Velocity = Vector3.zero
-        end)
+task.spawn(function()  
+	for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do track:Stop() end  
+	local connection; connection = game:GetService("RunService").RenderStepped:Connect(function()  
+		if not freezeVelo then connection:Disconnect(); return end  
+		humanoidrootpart.Velocity = Vector3.zero  
+	end)  
 
-        local org_WalkSpeed = humanoid.WalkSpeed
-        local org_AutoRotate = humanoid.AutoRotate
-        local org_JumpPower = humanoid.JumpPower
-        humanoid.WalkSpeed = 0
-        humanoid.AutoRotate = false
-        humanoid.JumpPower = 0
-        task.wait(3)
-        humanoid.WalkSpeed = org_WalkSpeed
-        humanoid.AutoRotate = org_AutoRotate
-        humanoid.JumpPower = org_JumpPower
-        humanoid.HipHeight = 0
-        active_move = nil
-    end)
+	local org_WalkSpeed = humanoid.WalkSpeed  
+	local org_AutoRotate = humanoid.AutoRotate  
+	local org_JumpPower = humanoid.JumpPower  
+	humanoid.WalkSpeed = 0  
+	humanoid.AutoRotate = false  
+	humanoid.JumpPower = 0  
+	task.wait(3)  
+	humanoid.WalkSpeed = org_WalkSpeed  
+	humanoid.AutoRotate = org_AutoRotate  
+	humanoid.JumpPower = org_JumpPower  
+	humanoid.HipHeight = 0  
+	active_move = nil  
+end)
+
 end
 
-----------------------------------------------------------
+
+---
+
 -- 20-20-20 DROPKICK
-----------------------------------------------------------
+
 local function drop_kick()
-    if active_move then return end
-    active_move = "20-20-20 Dropkick"
+if active_move then return end
+active_move = "20-20-20 Dropkick"
 
-    local nearestPlayer = nil
-    local nearestDistance = math.huge
+local nearestPlayer = nil  
+local nearestDistance = math.huge  
 
-    if not humanoidrootpart then return end
-    for _, plr in ipairs(players:GetPlayers()) do
-        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-            local targetRootPart = plr.Character.HumanoidRootPart
-            local distance = (humanoidrootpart.Position - targetRootPart.Position).Magnitude
-            if distance < nearestDistance then
-                nearestDistance = distance
-                nearestPlayer = plr
-            end
-        end
-    end
+if not humanoidrootpart then return end  
+for _, plr in ipairs(players:GetPlayers()) do  
+	if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then  
+		local targetRootPart = plr.Character.HumanoidRootPart  
+		local distance = (humanoidrootpart.Position - targetRootPart.Position).Magnitude  
+		if distance < nearestDistance then  
+			nearestDistance = distance  
+			nearestPlayer = plr  
+		end  
+	end  
+end  
 
-    if not nearestPlayer then return end
-    local target = nearestPlayer.Character
-    if not target or not target:FindFirstChild("Humanoid") then return end
+if not nearestPlayer then return end  
+local target = nearestPlayer.Character  
+if not target or not target:FindFirstChild("Humanoid") then return end  
 
-    local TRootPart = target:FindFirstChild("HumanoidRootPart")
-    humanoid:MoveTo(TRootPart.Position)
-    humanoid.WalkSpeed = 85
-    local startTime = tick()
-    local timeoutDuration = 5
+local TRootPart = target:FindFirstChild("HumanoidRootPart")  
+humanoid:MoveTo(TRootPart.Position)  
+humanoid.WalkSpeed = 85  
+local startTime = tick()  
+local timeoutDuration = 5  
 
-    repeat
-        humanoid.WalkSpeed = 85
-        humanoid:MoveTo(TRootPart.Position)
-        task.wait()
-        if tick() - startTime > timeoutDuration then
-            humanoid:MoveTo(humanoidrootpart.Position)
-            active_move = nil
-            return
-        end
-    until (humanoidrootpart.Position - TRootPart.Position).Magnitude < 5
+repeat  
+	humanoid.WalkSpeed = 85  
+	humanoid:MoveTo(TRootPart.Position)  
+	task.wait()  
+	if tick() - startTime > timeoutDuration then  
+		humanoid:MoveTo(humanoidrootpart.Position)  
+		active_move = nil  
+		return  
+	end  
+until (humanoidrootpart.Position - TRootPart.Position).Magnitude < 5  
 
-    local anim = Instance.new("Animation")
-    anim.AnimationId = "rbxassetid://180436148"
-    for _, Anim in pairs(humanoid:GetPlayingAnimationTracks()) do Anim:Stop() end
-    local track = humanoid:LoadAnimation(anim)
-    track:Play()
-    track.TimePosition = 0.1
-    track:AdjustSpeed(0)
-    anim:Destroy()
-    humanoid:MoveTo(humanoidrootpart.Position)
+local anim = Instance.new("Animation")  
+anim.AnimationId = "rbxassetid://180436148"  
+for _, Anim in pairs(humanoid:GetPlayingAnimationTracks()) do Anim:Stop() end  
+local track = humanoid:LoadAnimation(anim)  
+track:Play()  
+track.TimePosition = 0.1  
+track:AdjustSpeed(0)  
+anim:Destroy()  
+humanoid:MoveTo(humanoidrootpart.Position)  
 
-    local connection = game:GetService('RunService').RenderStepped:Connect(function()
-        if not humanoidrootpart then return end
-        humanoidrootpart.CFrame = CFrame.new(TRootPart.Position + Vector3.new(0, 1.75, 0) + (TRootPart.CFrame.LookVector * 2.4))
-        local lookAtCFrame = CFrame.lookAt(humanoidrootpart.Position, TRootPart.Position)
-        humanoidrootpart.CFrame = lookAtCFrame * CFrame.Angles(math.rad(115), math.rad(90), 0)
-        humanoidrootpart.Velocity = Vector3.new(0, 0, 0)
-    end)
+local connection = game:GetService('RunService').RenderStepped:Connect(function()  
+	if not humanoidrootpart then return end  
+	humanoidrootpart.CFrame = CFrame.new(TRootPart.Position + Vector3.new(0, 1.75, 0) + (TRootPart.CFrame.LookVector * 2.4))  
+	local lookAtCFrame = CFrame.lookAt(humanoidrootpart.Position, TRootPart.Position)  
+	humanoidrootpart.CFrame = lookAtCFrame * CFrame.Angles(math.rad(115), math.rad(90), 0)  
+	humanoidrootpart.Velocity = Vector3.new(0, 0, 0)  
+end)  
 
-    task.wait(2)
-    connection:Disconnect()
-    for _, Anim in pairs(humanoid:GetPlayingAnimationTracks()) do Anim:Stop() end
-    humanoidrootpart.CFrame = CFrame.new(humanoidrootpart.Position, TRootPart.Position or nil)
-    humanoid.Sit = true
-    task.wait(0.5)
-    humanoid.Sit = false
-    humanoid.WalkSpeed = 16
-    humanoid.AutoRotate = true
-    humanoid.JumpPower = 50
-    active_move = nil
+task.wait(2)  
+connection:Disconnect()  
+for _, Anim in pairs(humanoid:GetPlayingAnimationTracks()) do Anim:Stop() end  
+humanoidrootpart.CFrame = CFrame.new(humanoidrootpart.Position, TRootPart.Position or nil)  
+humanoid.Sit = true  
+task.wait(0.5)  
+humanoid.Sit = false  
+humanoid.WalkSpeed = 16  
+humanoid.AutoRotate = true  
+humanoid.JumpPower = 50  
+active_move = nil
+
 end
 
---------------------
--- HALF ASCEND
---------------------
+
+---
+
+-- HALF DESCENT (floating+movement pro 360)
+
 local function half_descent()
-    if active_move then return end
-    active_move = "Half Descent"
+if active_move then return end
+active_move = "Half Descent"
 
-    local freezeVelo = true
-    local TweenService = game:GetService("TweenService")
-    local initial_position = humanoidrootpart.CFrame
+local freezeVelo = true  
+local TweenService = game:GetService("TweenService")  
+local initial_position = humanoidrootpart.CFrame  
 
-    -- store originals
-    local orig_rootc0 = rootjoint and rootjoint.C0 or nil
-    local rightShoulder = character:FindFirstChild("Right Shoulder", true)
-    local leftShoulder = character:FindFirstChild("Left Shoulder", true)
-    local neck = character:FindFirstChild("Neck", true)
-    local orig_right_C0 = rightShoulder and rightShoulder.C0 or nil
-    local orig_left_C0 = leftShoulder and leftShoulder.C0 or nil
-    local orig_neck_C0 = neck and neck.C0 or nil
+-- store originals  
+local orig_rootc0 = rootjoint and rootjoint.C0 or nil  
+local rightShoulder = character:FindFirstChild("Right Shoulder", true)  
+local leftShoulder = character:FindFirstChild("Left Shoulder", true)  
+local neck = character:FindFirstChild("Neck", true)  
+local orig_right_C0 = rightShoulder and rightShoulder.C0 or nil  
+local orig_left_C0 = leftShoulder and leftShoulder.C0 or nil  
+local orig_neck_C0 = neck and neck.C0 or nil  
 
-    -- rise and pitch forward
-    task.spawn(function()
-        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 60, 0)})
-        tween:Play(); tween.Completed:Wait()
+-- rise and pitch forward  
+task.spawn(function()  
+	local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)  
+	local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 60, 0)})  
+	tween:Play(); tween.Completed:Wait()  
 
-        local tiltTween = TweenService:Create(humanoidrootpart, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(-85), 0, 0)
-        })
-        tiltTween:Play(); tiltTween.Completed:Wait()
-    end)
+	local tiltTween = TweenService:Create(humanoidrootpart, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {  
+		CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(-85), 0, 0)  
+	})  
+	tiltTween:Play(); tiltTween.Completed:Wait()  
+end)  
 
-    -- torso+arm+neck pose
-    task.spawn(function()
-        if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 * CFrame.Angles(0,0,math.rad(-18)) end
-        if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 * CFrame.new(0,-0.2,-0.35) * CFrame.Angles(math.rad(-65), math.rad(10), math.rad(-20)) end
-        if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 * CFrame.new(0,-0.05,0) * CFrame.Angles(math.rad(10), math.rad(-8), math.rad(-12)) end
-        if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10),0,math.rad(-8)) end
-        task.wait(4.5) -- float duration
-        if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 end
-        if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 end
-        if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 end
-        if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 end
-    end)
+-- torso+arm+neck pose  
+task.spawn(function()  
+	if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 * CFrame.Angles(0,0,math.rad(-18)) end  
+	if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 * CFrame.new(0,-0.2,-0.35) * CFrame.Angles(math.rad(-65), math.rad(10), math.rad(-20)) end  
+	if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 * CFrame.new(0,-0.05,0) * CFrame.Angles(math.rad(10), math.rad(-8), math.rad(-12)) end  
+	if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10),0,math.rad(-8)) end  
+	task.wait(10.5)  
+	if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 end  
+	if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 end  
+	if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 end  
+	if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 end  
+end)  
 
-    -- float + movement + drop
-    task.spawn(function()
-        local connection
-        connection = game:GetService("RunService").RenderStepped:Connect(function()
-            if humanoidrootpart then
-                local pos = humanoidrootpart.Position
-                local targetPos = Vector3.new(pos.X, pos.Y - 100, pos.Z)
-                humanoidrootpart.CFrame = CFrame.lookAt(pos, targetPos)
-                if freezeVelo then humanoidrootpart.Velocity = Vector3.zero end
-            end
-        end)
+-- float + movement + drop at 9th second  
+task.spawn(function()  
+	local connection  
+	connection = game:GetService("RunService").RenderStepped:Connect(function()  
+		if humanoidrootpart then  
+			local pos = humanoidrootpart.Position  
+			local targetPos = Vector3.new(pos.X, pos.Y - 100, pos.Z)  
+			humanoidrootpart.CFrame = CFrame.lookAt(pos, targetPos)  
+			if freezeVelo then humanoidrootpart.Velocity = Vector3.zero end  
+		end  
+	end)  
 
-        -- allow free movement while airborne
-        humanoid.WalkSpeed = 70
-        humanoid.JumpPower = 50
-        humanoid.AutoRotate = true
+	-- allow free movement while airborne  
+	humanoid.WalkSpeed = 70  
+	humanoid.JumpPower = 50  
+	humanoid.AutoRotate = true  
 
-        task.wait(4.5) -- float + move freely
+	task.wait(4) -- float + move freely  
 
-        -- start descent
-        humanoid.WalkSpeed = 0
-        freezeVelo = true
-        task.wait(0.5)
+	-- start descent (will be caught by tween at 10s)  
+	humanoid.WalkSpeed = 0  
+	freezeVelo = true  
+	task.wait(1)  
 
-        connection:Disconnect()
-        humanoid.WalkSpeed = 16
-        humanoid.AutoRotate = true
-        humanoid.JumpPower = 50
-        humanoid.HipHeight = 0
-        active_move = nil
-    end)
+	connection:Disconnect()  
+	humanoid.WalkSpeed = 16  
+	humanoid.AutoRotate = true  
+	humanoid.JumpPower = 50  
+	humanoid.HipHeight = 0  
+	active_move = nil  
+end)
+
 end
 
-----------------------------------------------------------
--- MLG KICKWORKS (final move)
-----------------------------------------------------------
-local function mlg_kickworks()
-    if active_move then return end
-    active_move = "MLG Kickworks"
 
-    local SetSpeed = humanoid.WalkSpeed
-    humanoid.WalkSpeed = 0
+---
 
-    local animations = {
-        "rbxassetid://74909569",
-        "rbxassetid://187951261",
-        "rbxassetid://28488254",
-        "rbxassetid://188632011",
-        "rbxassetid://182393478",
-    }
-
-    local loadedAnimations = {}
-    for _, animId in ipairs(animations) do
-        local anim = Instance.new("Animation")
-        anim.AnimationId = animId
-        table.insert(loadedAnimations, humanoid:LoadAnimation(anim))
-    end
-
-    local A1, A2, A3, A4, A5 = unpack(loadedAnimations)
-    A4.Looped = true
-
-    -- Animation Sequence
-    sendChatMessage("because of this.")
-    wait(1.6)
-    sendChatMessage("it's finally over...")
-    wait(0.4)
-
-    A1:Play()
-    A1.Stopped:Wait()
-
-    A2:Play()
-    wait(1.2)
-    A2:Stop()
-
-    A3:Play()
-    wait(0.3)
-
-    sendChatMessage("360 MLG series")
-    wait(2.7)
-    A1:Play()
-    A1.Stopped:Wait()
-
-    A2:Play()
-    wait(1.2)
-    A2:Stop()
-
-    wait(1.1)
-    A4:Play()
-    wait(1.1)
-    A4:Stop()
-
-    wait(2)
-    A4:Play()
-    wait(0.8)
-    A4:Stop()
-
-    A5:Play()
-    sendChatMessage("MLG kickworks")
-    wait(3)
-    A5:Stop()
-    humanoid.WalkSpeed = SetSpeed
-    active_move = nil
-end
-
-----------------------------------------------------------
 -- TOOLS
-----------------------------------------------------------
+
 local stoic_bomb_skill = Instance.new("Tool")
 stoic_bomb_skill.Name = "getrekt bomb"
 stoic_bomb_skill.RequiresHandle = false
 stoic_bomb_skill.Parent = player.Backpack
 stoic_bomb_skill.Equipped:Connect(function()
-    stoic_bomb()
-    task.wait()
-    stoic_bomb_skill.Parent = player.Backpack
+stoic_bomb()
+task.wait()
+stoic_bomb_skill.Parent = player.Backpack
 end)
 
 local drop_kick_skill = Instance.new("Tool")
@@ -347,17 +288,17 @@ drop_kick_skill.Name = "67 mlg kick"
 drop_kick_skill.RequiresHandle = false
 drop_kick_skill.Parent = player.Backpack
 drop_kick_skill.Equipped:Connect(function()
-    task.spawn(drop_kick)
-    task.wait()
-    drop_kick_skill.Parent = player.Backpack
+task.spawn(drop_kick)
+task.wait()
+drop_kick_skill.Parent = player.Backpack
 end)
 
-local mlg_kickworks_skill = Instance.new("Tool")
-mlg_kickworks_skill.Name = "MLG kickworks"
-mlg_kickworks_skill.RequiresHandle = false
-mlg_kickworks_skill.Parent = player.Backpack
-mlg_kickworks_skill.Equipped:Connect(function()
-    task.spawn(mlg_kickworks)
-    task.wait()
-    mlg_kickworks_skill.Parent = player.Backpack
+local half_descent_skill = Instance.new("Tool")
+half_descent_skill.Name = "half ascend"
+half_descent_skill.RequiresHandle = false
+half_descent_skill.Parent = player.Backpack
+half_descent_skill.Equipped:Connect(function()
+half_descent()
+task.wait()
+half_descent_skill.Parent = player.Backpack
 end)
