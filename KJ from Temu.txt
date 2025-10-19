@@ -1,4 +1,5 @@
 repeat task.wait() until game:IsLoaded()
+
 print("Loaded")
 
 local players = game:GetService("Players")
@@ -181,7 +182,7 @@ local function drop_kick()
 end
 
 ----------------------------------------------------------
--- HALF DESCENT (nose-locked)
+-- HALF DESCENT (floating+movement pro 360)
 ----------------------------------------------------------
 local function half_descent()
 	if active_move then return end
@@ -191,6 +192,7 @@ local function half_descent()
 	local TweenService = game:GetService("TweenService")
 	local initial_position = humanoidrootpart.CFrame
 
+	-- store originals
 	local orig_rootc0 = rootjoint and rootjoint.C0 or nil
 	local rightShoulder = character:FindFirstChild("Right Shoulder", true)
 	local leftShoulder = character:FindFirstChild("Left Shoulder", true)
@@ -199,11 +201,10 @@ local function half_descent()
 	local orig_left_C0 = leftShoulder and leftShoulder.C0 or nil
 	local orig_neck_C0 = neck and neck.C0 or nil
 
-	-- rise + tilt forward
+	-- rise and pitch forward
 	task.spawn(function()
-		local tween = TweenService:Create(humanoidrootpart, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame = initial_position + Vector3.new(0, 120, 0)
-		})
+		local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 120, 0)})
 		tween:Play(); tween.Completed:Wait()
 
 		local tiltTween = TweenService:Create(humanoidrootpart, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -212,24 +213,12 @@ local function half_descent()
 		tiltTween:Play(); tiltTween.Completed:Wait()
 	end)
 
-	-- movement enable/disable + speed buff
+	-- torso+arm+neck pose
 	task.spawn(function()
-		humanoid.AutoRotate = false
-		humanoid.JumpPower = 0
-		task.wait(0.7)
-		humanoid.WalkSpeed = 70
-		freezeVelo = false
-		task.wait(10)
-		humanoid.WalkSpeed = 0
-		freezeVelo = true
-	end)
-
-	-- pose arms + torso + neck
-	task.spawn(function()
-		if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 * CFrame.Angles(0, 0, math.rad(-18)) end
-		if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 * CFrame.new(0, -0.2, -0.35) * CFrame.Angles(math.rad(-65), math.rad(10), math.rad(-20)) end
-		if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 * CFrame.new(0, -0.05, 0) * CFrame.Angles(math.rad(10), math.rad(-8), math.rad(-12)) end
-		if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10), 0, math.rad(-8)) end
+		if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 * CFrame.Angles(0,0,math.rad(-18)) end
+		if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 * CFrame.new(0,-0.2,-0.35) * CFrame.Angles(math.rad(-65), math.rad(10), math.rad(-20)) end
+		if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 * CFrame.new(0,-0.05,0) * CFrame.Angles(math.rad(10), math.rad(-8), math.rad(-12)) end
+		if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10),0,math.rad(-8)) end
 		task.wait(10.5)
 		if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 end
 		if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 end
@@ -237,35 +226,35 @@ local function half_descent()
 		if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 end
 	end)
 
-	-- hold in air
+	-- float + movement + drop at 9th second
 	task.spawn(function()
 		local connection
 		connection = game:GetService("RunService").RenderStepped:Connect(function()
-			if not freezeVelo then return end
 			if humanoidrootpart then
-				humanoidrootpart.Velocity = Vector3.zero
-				-- nose always faces ground
 				local pos = humanoidrootpart.Position
 				local targetPos = Vector3.new(pos.X, pos.Y - 100, pos.Z)
 				humanoidrootpart.CFrame = CFrame.lookAt(pos, targetPos)
+				if freezeVelo then humanoidrootpart.Velocity = Vector3.zero end
 			end
 		end)
 
-		task.wait(11)
+		-- allow free movement while airborne
+		humanoid.WalkSpeed = 70
+		humanoid.JumpPower = 50
+		humanoid.AutoRotate = true
 
-		local targetPos = humanoidrootpart and humanoidrootpart.Position or (initial_position and initial_position.Position) or Vector3.new(0,0,0)
-		local downTargetCFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
-		local downTween = TweenService:Create(humanoidrootpart, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			CFrame = downTargetCFrame
-		})
-		downTween:Play(); downTween.Completed:Wait()
+		task.wait(9) -- float + move freely
+
+		-- start descent (will be caught by tween at 10s)
+		humanoid.WalkSpeed = 0
+		freezeVelo = true
+		task.wait(1)
 
 		connection:Disconnect()
 		humanoid.WalkSpeed = 16
 		humanoid.AutoRotate = true
 		humanoid.JumpPower = 50
 		humanoid.HipHeight = 0
-		freezeVelo = false
 		active_move = nil
 	end)
 end
@@ -284,7 +273,7 @@ stoic_bomb_skill.Equipped:Connect(function()
 end)
 
 local drop_kick_skill = Instance.new("Tool")
-drop_kick_skill.Name = "67 sigma Dropkick"
+drop_kick_skill.Name = "67 mlg dropkick"
 drop_kick_skill.RequiresHandle = false
 drop_kick_skill.Parent = player.Backpack
 drop_kick_skill.Equipped:Connect(function()
