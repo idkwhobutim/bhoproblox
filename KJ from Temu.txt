@@ -263,7 +263,7 @@ end
 -- TOOLS
 ----------------------------------------------------------
 local stoic_bomb_skill = Instance.new("Tool")
-stoic_bomb_skill.Name = "Stoic Bomb"
+stoic_bomb_skill.Name = "getrekt bomb"
 stoic_bomb_skill.RequiresHandle = false
 stoic_bomb_skill.Parent = player.Backpack
 stoic_bomb_skill.Equipped:Connect(function()
@@ -273,7 +273,7 @@ stoic_bomb_skill.Equipped:Connect(function()
 end)
 
 local drop_kick_skill = Instance.new("Tool")
-drop_kick_skill.Name = "20-20-20 Dropkick"
+drop_kick_skill.Name = "67 mlg kick"
 drop_kick_skill.RequiresHandle = false
 drop_kick_skill.Parent = player.Backpack
 drop_kick_skill.Equipped:Connect(function()
@@ -283,7 +283,7 @@ drop_kick_skill.Equipped:Connect(function()
 end)
 
 local half_descent_skill = Instance.new("Tool")
-half_descent_skill.Name = "Half Descent"
+half_descent_skill.Name = "half ascend"
 half_descent_skill.RequiresHandle = false
 half_descent_skill.Parent = player.Backpack
 half_descent_skill.Equipped:Connect(function()
