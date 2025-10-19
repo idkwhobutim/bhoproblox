@@ -278,7 +278,7 @@ mlg_kickworks_skill.Name = "MLG kickworks"
 mlg_kickworks_skill.RequiresHandle = false
 mlg_kickworks_skill.Parent = player.Backpack
 mlg_kickworks_skill.Equipped:Connect(function()
-    mlg_kickworks()
+    task.spawn(mlg_kickworks)
     task.wait()
     mlg_kickworks_skill.Parent = player.Backpack
 end)
