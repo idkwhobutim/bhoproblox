@@ -302,7 +302,7 @@ local function mlg_kickworks()
     A3:Play()
     wait(0.3)
 
-    sendChatMessage("360 MLG series.")
+    sendChatMessage("360 MLG series")
     wait(2.7)
     A1:Play()
     A1.Stopped:Wait()
@@ -322,10 +322,11 @@ local function mlg_kickworks()
     A4:Stop()
 
     A5:Play()
-    sendChatMessage("MLG kickworks.")
+    sendChatMessage("MLG kickworks")
     wait(3)
     A5:Stop()
     humanoid.WalkSpeed = SetSpeed
+    active_move = nil
 end
 
 ----------------------------------------------------------
