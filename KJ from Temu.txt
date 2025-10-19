@@ -180,6 +180,84 @@ local function drop_kick()
     active_move = nil
 end
 
+--------------------
+-- HALF ASCEND
+--------------------
+local function half_descent()
+    if active_move then return end
+    active_move = "Half Descent"
+
+    local freezeVelo = true
+    local TweenService = game:GetService("TweenService")
+    local initial_position = humanoidrootpart.CFrame
+
+    -- store originals
+    local orig_rootc0 = rootjoint and rootjoint.C0 or nil
+    local rightShoulder = character:FindFirstChild("Right Shoulder", true)
+    local leftShoulder = character:FindFirstChild("Left Shoulder", true)
+    local neck = character:FindFirstChild("Neck", true)
+    local orig_right_C0 = rightShoulder and rightShoulder.C0 or nil
+    local orig_left_C0 = leftShoulder and leftShoulder.C0 or nil
+    local orig_neck_C0 = neck and neck.C0 or nil
+
+    -- rise and pitch forward
+    task.spawn(function()
+        local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(humanoidrootpart, tweenInfo, {CFrame = initial_position + Vector3.new(0, 60, 0)})
+        tween:Play(); tween.Completed:Wait()
+
+        local tiltTween = TweenService:Create(humanoidrootpart, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            CFrame = humanoidrootpart.CFrame * CFrame.Angles(math.rad(-85), 0, 0)
+        })
+        tiltTween:Play(); tiltTween.Completed:Wait()
+    end)
+
+    -- torso+arm+neck pose
+    task.spawn(function()
+        if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 * CFrame.Angles(0,0,math.rad(-18)) end
+        if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 * CFrame.new(0,-0.2,-0.35) * CFrame.Angles(math.rad(-65), math.rad(10), math.rad(-20)) end
+        if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 * CFrame.new(0,-0.05,0) * CFrame.Angles(math.rad(10), math.rad(-8), math.rad(-12)) end
+        if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 * CFrame.Angles(math.rad(-10),0,math.rad(-8)) end
+        task.wait(4.5) -- float duration
+        if rightShoulder and orig_right_C0 then rightShoulder.C0 = orig_right_C0 end
+        if leftShoulder and orig_left_C0 then leftShoulder.C0 = orig_left_C0 end
+        if neck and orig_neck_C0 then neck.C0 = orig_neck_C0 end
+        if rootjoint and orig_rootc0 then rootjoint.C0 = orig_rootc0 end
+    end)
+
+    -- float + movement + drop
+    task.spawn(function()
+        local connection
+        connection = game:GetService("RunService").RenderStepped:Connect(function()
+            if humanoidrootpart then
+                local pos = humanoidrootpart.Position
+                local targetPos = Vector3.new(pos.X, pos.Y - 100, pos.Z)
+                humanoidrootpart.CFrame = CFrame.lookAt(pos, targetPos)
+                if freezeVelo then humanoidrootpart.Velocity = Vector3.zero end
+            end
+        end)
+
+        -- allow free movement while airborne
+        humanoid.WalkSpeed = 70
+        humanoid.JumpPower = 50
+        humanoid.AutoRotate = true
+
+        task.wait(4.5) -- float + move freely
+
+        -- start descent
+        humanoid.WalkSpeed = 0
+        freezeVelo = true
+        task.wait(0.5)
+
+        connection:Disconnect()
+        humanoid.WalkSpeed = 16
+        humanoid.AutoRotate = true
+        humanoid.JumpPower = 50
+        humanoid.HipHeight = 0
+        active_move = nil
+    end)
+end
+
 ----------------------------------------------------------
 -- MLG KICKWORKS (final move)
 ----------------------------------------------------------
