@@ -29,7 +29,7 @@ local cfg = {
     airAccel = 3200,
     maxAirSpeed = 20,
     runSpeed = 23,
-    jumpPower = 50,
+    jumpPower = 32,
     gravity = 80,
     friction = 6,
     stopSpeed = 5,
@@ -117,7 +117,7 @@ local function createGui()
 
     destroy.MouseButton1Click:Connect(function()
         humanoid.WalkSpeed = 16
-        humanoid.JumpPower = 50.1
+        humanoid.JumpPower = 50
 
         for _, c in pairs(getconnections(RunService.Heartbeat)) do
             if c.Function then c:Disconnect() end
